@@ -11,6 +11,7 @@ packages:
   - ca-certificates
   - lsb-release
   - fail2ban
+  - python3-systemd    # required for fail2ban systemd backend on Debian 12
   - ufw
   - htop
   - unzip
@@ -42,7 +43,9 @@ runcmd:
   - echo "nameserver 1.1.1.1" > /etc/resolv.conf
   - echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 
-  # ---- fail2ban (Debian 12: use systemd backend, no auth.log) --
+  # ---- fail2ban (Debian 12: systemd backend requires python3-systemd) -----
+  # Remove default jail that conflicts and lacks systemd backend config
+  - rm -f /etc/fail2ban/jail.d/defaults-debian.conf
   - |
     cat > /etc/fail2ban/jail.local << 'JAIL'
     [DEFAULT]
@@ -54,7 +57,6 @@ runcmd:
     enabled  = true
     port     = ${ssh_port}
     backend  = systemd
-    journalmatch = _SYSTEMD_UNIT=ssh.service
     JAIL
   - systemctl enable fail2ban
   - systemctl start fail2ban
