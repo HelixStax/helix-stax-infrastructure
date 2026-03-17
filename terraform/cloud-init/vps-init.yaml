@@ -1,0 +1,70 @@
+#cloud-config
+# Helix Stax — Services VPS bootstrap
+# Runs once on first boot via cloud-init
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - gnupg
+  - ca-certificates
+  - lsb-release
+  - fail2ban
+  - ufw
+  - htop
+  - unzip
+
+# Create required data directories
+runcmd:
+  # ---- Docker CE -----------------------------------------------
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update -y
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - systemctl enable docker
+  - systemctl start docker
+
+  # ---- Data directories ----------------------------------------
+  - mkdir -p /data/postgres /data/harbor /data/minio /data/authentik
+  - chmod 700 /data/postgres /data/harbor /data/minio /data/authentik
+
+  # ---- SSH hardening -------------------------------------------
+  - sed -i 's/^#\?Port .*/Port ${ssh_port}/' /etc/ssh/sshd_config
+  - sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
+  - sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+  - sed -i 's/^#\?PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+  - systemctl restart sshd
+
+  # ---- DNS (Cloudflare + Google) --------------------------------
+  - echo "nameserver 1.1.1.1" > /etc/resolv.conf
+  - echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+  # ---- fail2ban (Debian 12: use systemd backend, no auth.log) --
+  - |
+    cat > /etc/fail2ban/jail.local << 'JAIL'
+    [DEFAULT]
+    bantime  = 1h
+    findtime = 10m
+    maxretry = 5
+
+    [sshd]
+    enabled  = true
+    port     = ${ssh_port}
+    backend  = systemd
+    journalmatch = _SYSTEMD_UNIT=ssh.service
+    JAIL
+  - systemctl enable fail2ban
+  - systemctl start fail2ban
+
+  # ---- UFW (belt-and-suspenders with Hetzner firewall) ----------
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow ${ssh_port}/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+
+final_message: "Helix Stax VPS bootstrap complete. System ready in $UPTIME seconds."

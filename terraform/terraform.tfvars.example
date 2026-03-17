@@ -1,0 +1,13 @@
+# terraform.tfvars.example
+# Copy to terraform.tfvars and fill in real values.
+# terraform.tfvars is gitignored — never commit it.
+
+hcloud_token    = "YOUR_HETZNER_API_TOKEN_HERE"
+ssh_key_ids     = [111111111, 222222222]   # Hetzner SSH key IDs
+location        = "ash"                    # ash | nbg1 | fsn1 | hel1
+ssh_port        = 2222
+admin_ip        = "YOUR.PUBLIC.IP/32"
+cp_server_type  = "cpx31"
+vps_server_type = "cpx11"  # ash DC: cpx11 (2vCPU/2GB) or cpx31 (4vCPU/8GB)
+cp_image        = "alma-9"
+vps_image       = "debian-12"

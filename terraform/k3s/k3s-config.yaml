@@ -1,0 +1,30 @@
+# K3s server configuration — place at /etc/rancher/k3s/config.yaml on control plane
+# Phase 1 — Helix Stax infrastructure buildout
+
+# Disable default bundled components that conflict with our chosen stack
+disable:
+  - traefik       # We install Traefik separately via Helm with full config
+  - servicelb     # We use MetalLB or Hetzner CCM for load balancing
+
+# Network — Cilium handles CNI; disable K3s flannel + network policy controller
+flannel-backend: "none"
+disable-network-policy: true
+
+# Cluster networking
+cluster-cidr: "10.42.0.0/16"
+service-cidr: "10.43.0.0/16"
+cluster-dns: "10.43.0.10"
+
+# TLS SANs — add all IPs/hostnames that clients use to reach the API
+tls-san:
+  - "178.156.233.12"          # helix-stax-cp public IPv4
+  - "helix-cp"                # local SSH alias
+  - "k8s.helixstax.net"       # internal API endpoint (future)
+
+# Secure the K3s API port — default 6443
+# (Hetzner firewall already restricts this; this is belt-and-suspenders)
+
+# Write kubeconfig to standard location
+write-kubeconfig-mode: "0600"
+
+# Token is set via environment variable K3S_TOKEN (not stored here)
