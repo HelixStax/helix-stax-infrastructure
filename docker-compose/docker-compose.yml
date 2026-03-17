@@ -1,0 +1,81 @@
+# Helix Stax — Core Data Services
+# PostgreSQL 16 + Redis 7
+# Network: helix-net (shared with all future services)
+#
+# Usage:
+#   cp .env.example .env   # fill in passwords
+#   docker compose up -d
+#
+# Passwords live in .env (never commit that file)
+
+networks:
+  helix-net:
+    name: helix-net
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/postgres
+  redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/redis
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: helix-postgres
+    restart: unless-stopped
+    networks:
+      - helix-net
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    container_name: helix-redis
+    restart: unless-stopped
+    networks:
+      - helix-net
+    # Password is set via requirepass in redis/redis.conf (generated from .env at deploy time)
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - redis-data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      # redis.conf requirepass is embedded — healthcheck uses redis-cli with REDISCLI_AUTH env
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"

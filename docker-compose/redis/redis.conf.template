@@ -1,0 +1,38 @@
+# Helix Stax Redis Configuration Template
+# redis:7-alpine
+#
+# DEPLOY: Replace REDIS_PASSWORD_PLACEHOLDER with the actual password from .env
+# before mounting this file. The actual redis.conf on the VPS has the password embedded.
+
+# Network
+bind 0.0.0.0
+protected-mode yes
+
+# Auth — password injected at deploy time
+requirepass REDIS_PASSWORD_PLACEHOLDER
+
+# Memory management
+maxmemory 512mb
+maxmemory-policy allkeys-lru
+
+# Persistence - AOF
+appendonly yes
+appendfsync everysec
+no-appendfsync-on-rewrite no
+auto-aof-rewrite-percentage 100
+auto-aof-rewrite-min-size 64mb
+
+# RDB snapshots
+save 900 1
+save 300 10
+save 60 10000
+
+# Logging
+loglevel notice
+
+# Slow log
+slowlog-log-slower-than 10000
+slowlog-max-len 128
+
+# Data dir
+dir /data
