@@ -4,7 +4,8 @@ services:
     container_name: vaultwarden
     restart: unless-stopped
     environment:
-      DOMAIN: "https://vault.helixstax.com"
+      # Domain must match the actual URL — WebCrypto/FIDO2 origin matching depends on this
+      DOMAIN: "https://vault.helixstax.net"
       SIGNUPS_ALLOWED: "false"
       ADMIN_TOKEN: "${VAULTWARDEN_ADMIN_TOKEN}"
       WEBSOCKET_ENABLED: "true"

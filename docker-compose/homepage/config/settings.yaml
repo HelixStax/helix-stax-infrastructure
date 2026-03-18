@@ -1,0 +1,22 @@
+---
+title: Helix Stax Ops
+theme: dark
+color: slate
+headerStyle: clean
+
+layout:
+  Identity & Access:
+    style: row
+    columns: 3
+  Development:
+    style: row
+    columns: 2
+  Storage & Secrets:
+    style: row
+    columns: 2
+  Monitoring:
+    style: row
+    columns: 1
+  Automation:
+    style: row
+    columns: 1

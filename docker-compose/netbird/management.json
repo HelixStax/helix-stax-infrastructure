@@ -1,4 +1,5 @@
 {
+    "_deploy_note": "PLACEHOLDERS: Replace NETBIRD_CLIENT_ID and NETBIRD_CLIENT_SECRET with actual values from Authentik OAuth2 provider before deploying. These are set in /opt/helix-stax/.env and injected at deploy time.",
     "Stuns": [
         {
             "Proto": "udp",
@@ -34,9 +35,9 @@
     "ReverseProxy": {
         "TrustedHTTPProxies": [],
         "TrustedHTTPProxiesCount": 0,
-        "TrustedPeers": ["0.0.0.0/0"]
+        "TrustedPeers": ["127.0.0.1/32"]
     },
-    "DisableDefaultPolicy": false,
+    "DisableDefaultPolicy": true,
     "Datadir": "",
     "DataStoreEncryptionKey": "SEE /opt/helix-stax/.env NETBIRD_DATASTORE_ENC_KEY",
     "StoreConfig": {
@@ -44,14 +45,14 @@
     },
     "HttpConfig": {
         "Address": "0.0.0.0:33073",
-        "AuthIssuer": "",
-        "AuthAudience": "",
+        "AuthIssuer": "https://auth.helixstax.net/application/o/netbird/",
+        "AuthAudience": "NETBIRD_CLIENT_ID",
         "AuthKeysLocation": "",
         "AuthUserIDClaim": "",
         "CertFile": "",
         "CertKey": "",
         "IdpSignKeyRefreshEnabled": false,
-        "OIDCConfigEndpoint": ""
+        "OIDCConfigEndpoint": "https://auth.helixstax.net/application/o/netbird/.well-known/openid-configuration"
     },
     "IdpManagerConfig": {
         "ManagerType": "none",
@@ -72,13 +73,13 @@
         "Provider": "none",
         "ProviderConfig": {
             "Audience": "",
-            "AuthorizationEndpoint": "",
+            "AuthorizationEndpoint": "https://auth.helixstax.net/application/o/authorize/",
             "Domain": "",
-            "ClientID": "",
-            "ClientSecret": "",
-            "TokenEndpoint": "",
-            "DeviceAuthEndpoint": "",
-            "Scope": "openid",
+            "ClientID": "NETBIRD_CLIENT_ID",
+            "ClientSecret": "NETBIRD_CLIENT_SECRET",
+            "TokenEndpoint": "https://auth.helixstax.net/application/o/token/",
+            "DeviceAuthEndpoint": "https://auth.helixstax.net/application/o/device/",
+            "Scope": "openid profile email",
             "UseIDToken": false,
             "RedirectURLs": null
         }
@@ -86,12 +87,12 @@
     "PKCEAuthorizationFlow": {
         "ProviderConfig": {
             "Audience": "",
-            "ClientID": "",
-            "ClientSecret": "",
+            "ClientID": "NETBIRD_CLIENT_ID",
+            "ClientSecret": "NETBIRD_CLIENT_SECRET",
             "Domain": "",
-            "AuthorizationEndpoint": "",
-            "TokenEndpoint": "",
-            "Scope": "openid profile email offline_access api",
+            "AuthorizationEndpoint": "https://auth.helixstax.net/application/o/authorize/",
+            "TokenEndpoint": "https://auth.helixstax.net/application/o/token/",
+            "Scope": "openid profile email",
             "RedirectURLs": [],
             "UseIDToken": false,
             "DisablePromptLogin": false,

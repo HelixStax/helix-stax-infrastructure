@@ -1,0 +1,46 @@
+---
+- Identity & Access:
+    - Authentik:
+        icon: authentik
+        href: https://auth.helixstax.net
+        description: Identity provider & SSO
+    - Vaultwarden:
+        icon: vaultwarden
+        href: https://vault.helixstax.net
+        description: Password manager
+    - Netbird:
+        icon: netbird
+        href: https://vpn.helixstax.net
+        description: Zero-trust mesh VPN
+
+- Development:
+    - Devtron:
+        icon: devtron
+        href: https://devtron.helixstax.net
+        description: Kubernetes CI/CD platform
+    - Harbor:
+        icon: harbor
+        href: https://harbor.helixstax.net
+        description: Container registry
+
+- Storage & Secrets:
+    - MinIO:
+        icon: minio
+        href: https://minio.helixstax.net
+        description: S3-compatible object storage
+    - OpenBao:
+        icon: vault
+        href: https://openbao.helixstax.net
+        description: Secrets management
+
+- Monitoring:
+    - Grafana:
+        icon: grafana
+        href: https://grafana.helixstax.net
+        description: Observability dashboards
+
+- Automation:
+    - n8n:
+        icon: n8n
+        href: https://n8n.helixstax.net
+        description: Workflow automation

@@ -6,17 +6,13 @@
 # Ports exposed:
 #   10000/tcp  — Signal server (must reach peers)
 #   33073/tcp  — Management API (internal, behind proxy later)
-#   33080/tcp  — Dashboard HTTP (internal)
+#   33081/tcp  — Dashboard HTTP (moved from 33080 to avoid relay collision)
+#   33080/tcp  — Relay server
 #   3478/udp   — Coturn STUN/TURN
 #   49152-65535/udp — Coturn relay range
 #
-# Identity Provider: none (single-account mode, no OIDC for now)
-# Auth to management API is via setup keys only in this phase.
-#
-# To add Authentik OIDC later:
-#   1. Create OAuth2 provider in Authentik
-#   2. Update management.json HttpConfig + IdpManagerConfig
-#   3. Restart management container
+# Identity Provider: Authentik (OIDC via https://auth.helixstax.net)
+# Dashboard auth vars use placeholders — set NETBIRD_CLIENT_ID in .env at deploy time.
 
 x-default: &default
   restart: unless-stopped
@@ -54,20 +50,23 @@ services:
     networks:
       - helix-net
     ports:
-      - "33080:80"
+      # Changed from 33080:80 to 33081:80 — port 33080 is used by netbird-relay
+      # (relay must keep 33080 because it's referenced in management.json Relay.Addresses
+      # and NB_EXPOSED_ADDRESS). Dashboard is behind Nginx so host port doesn't matter.
+      - "${NETBIRD_IP:-127.0.0.1}:33081:80"
     environment:
       # Management API endpoint (what the browser talks to)
-      - NETBIRD_MGMT_API_ENDPOINT=http://5.78.145.30:33073
-      - NETBIRD_MGMT_GRPC_API_ENDPOINT=http://5.78.145.30:33073
-      # Auth — disabled for now (setup key flow)
-      - AUTH_AUDIENCE=
-      - AUTH_CLIENT_ID=
+      - NETBIRD_MGMT_API_ENDPOINT=https://vpn.helixstax.net
+      - NETBIRD_MGMT_GRPC_API_ENDPOINT=https://vpn.helixstax.net
+      # Auth — Authentik OIDC (client ID set in .env at deploy time)
+      - AUTH_AUDIENCE=NETBIRD_CLIENT_ID
+      - AUTH_CLIENT_ID=NETBIRD_CLIENT_ID
       - AUTH_CLIENT_SECRET=
-      - AUTH_AUTHORITY=
+      - AUTH_AUTHORITY=https://auth.helixstax.net/application/o/netbird/
       - USE_AUTH0=false
       - AUTH_SUPPORTED_SCOPES=openid profile email offline_access api
-      - AUTH_REDIRECT_URI=
-      - AUTH_SILENT_REDIRECT_URI=
+      - AUTH_REDIRECT_URI=https://vpn.helixstax.net/auth
+      - AUTH_SILENT_REDIRECT_URI=https://vpn.helixstax.net/silent-auth
       - NETBIRD_TOKEN_SOURCE=accessToken
       # No TLS on dashboard — Traefik handles it later
       - NGINX_SSL_PORT=443
@@ -125,8 +124,8 @@ services:
       - "--log-file=console"
       - "--log-level=info"
       - "--disable-anonymous-metrics=true"
-      - "--single-account-mode-domain=netbird.helixstax.com"
-      - "--dns-domain=netbird.helixstax.com"
+      - "--single-account-mode-domain=netbird.helixstax.net"
+      - "--dns-domain=netbird.helixstax.net"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:33073/api/accounts"]
       interval: 30s

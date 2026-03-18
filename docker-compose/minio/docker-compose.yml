@@ -11,8 +11,12 @@ services:
     networks:
       - helix-net
     ports:
-      - "127.0.0.1:9002:9000"
-      - "127.0.0.1:9003:9001"
+      # Bind to Netbird IP for zero-trust mesh access; falls back to localhost if NETBIRD_IP is unset
+      # WARNING: NETBIRD_IP must be UNSET (not empty) for the fallback to work.
+      # An empty NETBIRD_IP="" will bind to 0.0.0.0, exposing the service publicly.
+      # Either export NETBIRD_IP=<ip> or leave it completely unset.
+      - "${NETBIRD_IP:-127.0.0.1}:9002:9000"
+      - "${NETBIRD_IP:-127.0.0.1}:9003:9001"
     command: server /data --console-address ":9001"
     deploy:
       resources:

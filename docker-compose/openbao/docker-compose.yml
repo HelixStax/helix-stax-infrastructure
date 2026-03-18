@@ -6,7 +6,11 @@ services:
     cap_add:
       - IPC_LOCK
     ports:
-      - "127.0.0.1:8200:8200"
+      # Bind to Netbird IP for zero-trust mesh access; falls back to localhost if NETBIRD_IP is unset
+      # WARNING: NETBIRD_IP must be UNSET (not empty) for the fallback to work.
+      # An empty NETBIRD_IP="" will bind to 0.0.0.0, exposing the service publicly.
+      # Either export NETBIRD_IP=<ip> or leave it completely unset.
+      - "${NETBIRD_IP:-127.0.0.1}:8200:8200"
     volumes:
       - /data/openbao/data:/data/openbao/data
       - /opt/helix-stax/openbao/config.hcl:/vault/config/config.hcl:ro

@@ -1,0 +1,32 @@
+# Homepage — Helix Stax Ops Dashboard
+# https://gethomepage.dev
+#
+# Access pattern: Private, Netbird-only.
+# The port binding uses ${NETBIRD_IP:-127.0.0.1} so that:
+#   - When NETBIRD_IP is set (e.g., 100.x.x.x), the dashboard is reachable
+#     only over the Netbird mesh tunnel on port 3000.
+#   - When NETBIRD_IP is unset, it falls back to 127.0.0.1 (localhost-only),
+#     preventing any external access.
+# This means Homepage is NEVER exposed on the public interface (0.0.0.0).
+
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    ports:
+      # WARNING: NETBIRD_IP must be UNSET (not empty) for the fallback to work.
+      # An empty NETBIRD_IP="" will bind to 0.0.0.0, exposing the service publicly.
+      # Either export NETBIRD_IP=<ip> or leave it completely unset.
+      - "${NETBIRD_IP:-127.0.0.1}:3000:3000"
+    volumes:
+      - ./config:/app/config
+    environment:
+      PUID: 1000
+      PGID: 1000
+    restart: unless-stopped
+    networks:
+      - helix-net
+
+networks:
+  helix-net:
+    external: true

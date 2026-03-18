@@ -1,0 +1,100 @@
+# Nginx Reverse Proxy + Certbot (Let's Encrypt DNS-01 via Cloudflare)
+#
+# Terminates TLS for publicly-accessible services:
+#   - auth.helixstax.net  → authentik-server:9000
+#   - vault.helixstax.net → vaultwarden:80
+#
+# All other services remain private (Netbird VPN only).
+#
+# INITIAL CERT ISSUANCE (run once before starting Nginx):
+#   docker compose run --rm certbot certonly \
+#     --dns-cloudflare \
+#     --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
+#     --dns-cloudflare-propagation-seconds 30 \
+#     -d auth.helixstax.net \
+#     -d vault.helixstax.net \
+#     --agree-tos \
+#     --email admin@helixstax.com \
+#     --no-eff-email
+#
+# After initial issuance, start the full stack:
+#   docker compose up -d
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      # Intentionally bound to 0.0.0.0 — these are the public entrypoints
+      - "80:80"
+      - "443:443"
+    volumes:
+      - certbot-certs:/etc/letsencrypt:ro
+      - certbot-webroot:/var/www/certbot:ro
+      - ./conf.d:/etc/nginx/conf.d:ro
+      - ./snippets:/etc/nginx/snippets:ro
+      # Generate snakeoil cert: openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout ssl/default.key -out ssl/default.crt -subj "/CN=_"
+      - ./ssl:/etc/nginx/ssl:ro
+    networks:
+      - helix-net
+    depends_on:
+      certbot:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  certbot:
+    image: certbot/dns-cloudflare
+    container_name: certbot
+    restart: "no"
+    volumes:
+      - certbot-certs:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    environment:
+      - CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}
+    # Cloudflare credentials file is generated from the env var at container start.
+    # The renewal loop runs every 12 hours. On successful renewal, it signals
+    # Nginx to reload its config (picking up new certs) via the Docker API.
+    #
+    # NOTE: The "docker kill" deploy hook requires the Docker socket or
+    # an external cron. In practice, the certbot container just handles
+    # renewals and Nginx picks up new certs on its next restart/reload.
+    # For automated reload, use a cron on the host or a sidecar with
+    # Docker socket access.
+    entrypoint: /bin/sh
+    command: >-
+      -c "
+        mkdir -p /etc/letsencrypt &&
+        echo 'dns_cloudflare_api_token = '$$CLOUDFLARE_DNS_API_TOKEN > /etc/letsencrypt/cloudflare.ini &&
+        chmod 600 /etc/letsencrypt/cloudflare.ini &&
+        trap exit TERM;
+        while :; do
+          certbot renew
+            --dns-cloudflare
+            --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini
+            --quiet;
+          sleep 12h & wait $${!};
+        done
+      "
+    networks:
+      - helix-net
+
+volumes:
+  certbot-certs:
+    driver: local
+  certbot-webroot:
+    driver: local
+
+networks:
+  helix-net:
+    external: true

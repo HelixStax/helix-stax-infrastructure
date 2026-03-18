@@ -1,0 +1,11 @@
+---
+- External:
+    - GitHub:
+        - icon: github
+          href: https://github.com/KeemWilliams
+    - Cloudflare:
+        - icon: cloudflare
+          href: https://dash.cloudflare.com
+    - Hetzner:
+        - icon: hetzner
+          href: https://console.hetzner.cloud

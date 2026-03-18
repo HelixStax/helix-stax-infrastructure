@@ -6,7 +6,10 @@
 # and locally in ~/.claude/helix-stax-secrets/vps-credentials.env
 # DO NOT commit real passwords here.
 
-hostname: harbor.helixstax.com
+# Harbor installer config (not docker-compose) — does NOT support ${ENV_VAR} interpolation.
+# Port rebinding must be done on the generated compose file after running install.sh,
+# or by passing flags like --with-notary to the installer.
+hostname: harbor.helixstax.net
 
 # HTTP only — TLS terminated at Cloudflare/Traefik
 http:
