@@ -1,0 +1,21 @@
+services:
+  openbao:
+    image: quay.io/openbao/openbao:latest
+    container_name: openbao
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "127.0.0.1:8200:8200"
+    volumes:
+      - /data/openbao/data:/data/openbao/data
+      - /opt/helix-stax/openbao/config.hcl:/vault/config/config.hcl:ro
+    environment:
+      - BAO_ADDR=http://127.0.0.1:8200
+    command: ["server", "-config=/vault/config/config.hcl"]
+    networks:
+      - helix-net
+
+networks:
+  helix-net:
+    external: true
