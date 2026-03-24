@@ -399,7 +399,7 @@
 
     /* ===== NEW INTERCONNECTION KEYFRAMES ===== */
 
-    /* Layer 1 <-> Layer 2 */
+    /* Layer 1 to Layer 2 */
     @keyframes dot-zt-to-traefik {
       0%   { cx: 385; cy: 204; opacity: 0; }
       5%   { opacity: 1; }
@@ -419,7 +419,7 @@
       100% { cx: 620; cy: 294; opacity: 0; }
     }
 
-    /* Layer 2 <-> Layer 3 */
+    /* Layer 2 to Layer 3 */
     @keyframes dot-cp-to-cnpg {
       0%   { cx: 370; cy: 346; opacity: 0; }
       5%   { opacity: 1; }
@@ -445,7 +445,7 @@
       100% { cx: 635; cy: 481; opacity: 0; }
     }
 
-    /* Layer 3 <-> Layer 4 */
+    /* Layer 3 to Layer 4 */
     @keyframes dot-cnpg-to-n8n {
       0%   { cx: 255; cy: 529; opacity: 0; }
       5%   { opacity: 1; }
@@ -507,7 +507,7 @@
       100% { cx: 381; cy: 644; opacity: 0; }
     }
 
-    /* Layer 4 <-> Layer 5 */
+    /* Layer 4 to Layer 5 */
     @keyframes dot-monitoring-to-n8n {
       0%   { cx: 381; cy: 762; opacity: 0; }
       5%   { opacity: 1; }
@@ -1041,7 +1041,7 @@
 
   <!-- ===== NEW INTERCONNECTIONS ===== -->
 
-  <!-- LAYER 1 <-> LAYER 2 -->
+  <!-- LAYER 1 to LAYER 2 -->
 
   <!-- Zero Trust -> Traefik (policy enforcement) -->
   <path d="M385,204 Q320,248 140,294" stroke="#52A882" stroke-width="0.7" fill="none" opacity="0.35" stroke-dasharray="4,4" class="svc-edge-teal"/>
@@ -1055,7 +1055,7 @@
   <path d="M610,204 Q615,248 620,294" stroke="#52A882" stroke-width="0.7" fill="none" opacity="0.3" stroke-dasharray="3,5" class="svc-edge-dashed-teal"/>
   <circle r="1.8" fill="#52A882" class="svc-dot-tunnel-vps"/>
 
-  <!-- LAYER 2 <-> LAYER 3 -->
+  <!-- LAYER 2 to LAYER 3 -->
 
   <!-- helix-stax-cp -> CloudNativePG (DB runs on CP) -->
   <path d="M370,346 Q330,410 255,481" stroke="#52A882" stroke-width="0.7" fill="none" opacity="0.38" class="svc-edge-teal"/>
@@ -1073,7 +1073,7 @@
   <path d="M620,346 Q628,412 635,481" stroke="#C4975A" stroke-width="0.7" fill="none" opacity="0.35" class="svc-edge-amber"/>
   <circle r="1.8" fill="#C4975A" class="svc-dot-vps-openbao"/>
 
-  <!-- LAYER 3 <-> LAYER 4 -->
+  <!-- LAYER 3 to LAYER 4 -->
 
   <!-- CloudNativePG -> n8n (n8n database) -->
   <path d="M230,529 Q175,585 113,644" stroke="#52A882" stroke-width="0.7" fill="none" opacity="0.38" class="svc-edge-teal"/>
@@ -1115,7 +1115,7 @@
   <path d="M160,529 Q260,570 381,644" stroke="#C4975A" stroke-width="0.7" fill="none" opacity="0.32" class="svc-edge-amber"/>
   <circle r="1.8" fill="#C4975A" class="svc-dot-zit-mon"/>
 
-  <!-- LAYER 4 <-> LAYER 5 -->
+  <!-- LAYER 4 to LAYER 5 -->
 
   <!-- Monitoring -> n8n (alert webhooks, horizontal within L4 bottom) -->
   <path d="M320,695 Q240,710 168,695" stroke="#C4975A" stroke-width="0.7" fill="none" opacity="0.38" class="svc-edge-amber"/>
@@ -1129,7 +1129,7 @@
   <path d="M168,670 Q200,660 237,670" stroke="#52A882" stroke-width="0.7" fill="none" opacity="0.4" class="svc-edge-teal"/>
   <circle r="1.8" fill="#52A882" class="svc-dot-n8n-rc"/>
 
-  <!-- LAYER 3 <-> LAYER 5 -->
+  <!-- LAYER 3 to LAYER 5 -->
 
   <!-- Devtron -> GitHub (pull code) -->
   <path d="M734,529 Q560,680 320,814" stroke="#C4975A" stroke-width="0.7" fill="none" opacity="0.35" stroke-dasharray="3,5" class="svc-edge-dashed-amber"/>
@@ -1139,7 +1139,7 @@
   <path d="M635,481 Q540,380 160,204" stroke="#C4975A" stroke-width="0.6" fill="none" opacity="0.20" stroke-dasharray="2,6" class="svc-edge-dashed-amber"/>
   <circle r="1.5" fill="#C4975A" class="svc-dot-openbao-cf"/>
 
-  <!-- LAYER 1 <-> LAYER 5 -->
+  <!-- LAYER 1 to LAYER 5 -->
 
   <!-- Cloudflare -> Google Workspace (MX/email routing) -->
   <path d="M160,252 Q320,560 507,814" stroke="#52A882" stroke-width="0.6" fill="none" opacity="0.22" stroke-dasharray="2,6" class="svc-edge-dashed-teal"/>
