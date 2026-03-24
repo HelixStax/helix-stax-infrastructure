@@ -27,4 +27,7 @@ Thumbs.db
 *.tmp
 *.bak
 .worktrees/
-ansible/
+
+# Ansible — ignore embedded .git if present
+ansible/.git/
+ansible/collections/
