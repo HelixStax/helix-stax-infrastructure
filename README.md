@@ -3,6 +3,10 @@
 IaC, configuration, and operational docs for the Helix Stax platform — a self-hosted
 Kubernetes environment on Hetzner Cloud.
 
+## Architecture
+
+![Helix Stax Infrastructure Architecture](docs/assets/architecture-diagram.svg)
+
 ## Stack
 
 | Layer | Tool |
