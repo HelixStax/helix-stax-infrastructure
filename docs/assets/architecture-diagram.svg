@@ -1,8 +1,135 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 900" width="820" height="900" style="background:#0D1117; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
 
+  <style>
+    /* ===== FLOWING EDGES ===== */
+    @keyframes flow {
+      0% { stroke-dashoffset: 20; }
+      100% { stroke-dashoffset: 0; }
+    }
+    @keyframes flow-reverse {
+      0% { stroke-dashoffset: 0; }
+      100% { stroke-dashoffset: 20; }
+    }
+    .edge-flow {
+      stroke-dasharray: 5, 5;
+      animation: flow 1s linear infinite;
+    }
+    .edge-flow-slow {
+      stroke-dasharray: 5, 5;
+      animation: flow 1.6s linear infinite;
+    }
+
+    /* ===== TRAVELING DOTS (vertical, internet -> cluster) ===== */
+    @keyframes dot-inet-to-cf {
+      0% { cy: 100; opacity: 0; }
+      8% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { cy: 118; opacity: 0; }
+    }
+    @keyframes dot-cf-to-k3s {
+      0% { cy: 204; opacity: 0; }
+      10% { opacity: 1; }
+      88% { opacity: 1; }
+      100% { cy: 250; opacity: 0; }
+    }
+    @keyframes dot-k3s-to-platform {
+      0% { cy: 374; opacity: 0; }
+      12% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { cy: 392; opacity: 0; }
+    }
+    @keyframes dot-platform-to-apps {
+      0% { cy: 536; opacity: 0; }
+      12% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { cy: 554; opacity: 0; }
+    }
+    @keyframes dot-apps-to-ext {
+      0% { cy: 706; opacity: 0; }
+      12% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { cy: 724; opacity: 0; }
+    }
+
+    /* Horizontal traveling dots within Layer 1 */
+    @keyframes dot-cf-to-zt {
+      0% { cx: 260; opacity: 0; }
+      10% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { cx: 298; opacity: 0; }
+    }
+    @keyframes dot-zt-to-tunnel {
+      0% { cx: 470; opacity: 0; }
+      10% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { cx: 508; opacity: 0; }
+    }
+
+    /* Horizontal traveling dots within Layer 2 */
+    @keyframes dot-traefik-to-cp {
+      0% { cx: 220; opacity: 0; }
+      10% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { cx: 268; opacity: 0; }
+    }
+    @keyframes dot-cp-to-vps {
+      0% { cx: 470; opacity: 0; }
+      10% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { cx: 518; opacity: 0; }
+    }
+
+    .packet-1 { animation: dot-inet-to-cf 1.8s ease-in-out infinite; }
+    .packet-2 { animation: dot-cf-to-k3s 2.4s ease-in-out infinite 0.4s; }
+    .packet-3 { animation: dot-k3s-to-platform 2s ease-in-out infinite 0.8s; }
+    .packet-4 { animation: dot-platform-to-apps 2s ease-in-out infinite 1.2s; }
+    .packet-5 { animation: dot-apps-to-ext 2.2s ease-in-out infinite 1.6s; }
+    .packet-h1 { animation: dot-cf-to-zt 1.4s ease-in-out infinite 0.3s; }
+    .packet-h2 { animation: dot-zt-to-tunnel 1.4s ease-in-out infinite 0.9s; }
+    .packet-h3 { animation: dot-traefik-to-cp 1.2s ease-in-out infinite 0.5s; }
+    .packet-h4 { animation: dot-cp-to-vps 1.2s ease-in-out infinite 1.0s; }
+
+    /* ===== NODE GLOW PULSE ===== */
+    @keyframes glow-teal {
+      0%, 100% { filter: drop-shadow(0 0 2px #52A882); }
+      50% { filter: drop-shadow(0 0 10px #52A882) drop-shadow(0 0 4px #52A882); }
+    }
+    @keyframes glow-gold {
+      0%, 100% { filter: drop-shadow(0 0 2px #C4975A); }
+      50% { filter: drop-shadow(0 0 10px #C4975A) drop-shadow(0 0 4px #C4975A); }
+    }
+    .node-glow-teal {
+      animation: glow-teal 3s ease-in-out infinite;
+    }
+    .node-glow-gold {
+      animation: glow-gold 3.5s ease-in-out infinite;
+    }
+
+    /* ===== STAGGERED LAYER ENTRANCE ===== */
+    @keyframes fade-in {
+      0% { opacity: 0; transform: translateY(12px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    .layer-title { animation: fade-in 0.6s ease-out 0.1s both; }
+    .layer-1 { animation: fade-in 0.8s ease-out 0.3s both; }
+    .layer-2 { animation: fade-in 0.8s ease-out 0.6s both; }
+    .layer-3 { animation: fade-in 0.8s ease-out 0.9s both; }
+    .layer-4 { animation: fade-in 0.8s ease-out 1.2s both; }
+    .layer-5 { animation: fade-in 0.8s ease-out 1.5s both; }
+    .layer-legend { animation: fade-in 0.8s ease-out 1.8s both; }
+
+    /* ===== SUBTLE STATUS INDICATOR BLINK ===== */
+    @keyframes status-blink {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    .status-dot {
+      animation: status-blink 2s ease-in-out infinite;
+    }
+  </style>
+
   <!-- Definitions: gradients, shadows, arrows -->
   <defs>
-    <!-- Arrow markers -->
     <marker id="arrow-teal" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
       <path d="M0,0 L0,6 L8,3 z" fill="#52A882"/>
     </marker>
@@ -12,243 +139,275 @@
     <marker id="arrow-dim" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
       <path d="M0,0 L0,6 L8,3 z" fill="#4a5568"/>
     </marker>
-    <!-- Drop shadow filter -->
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
       <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.4"/>
-    </filter>
-    <!-- Subtle glow for layer headers -->
-    <filter id="glow-teal">
-      <feGaussianBlur stdDeviation="2" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
     </filter>
   </defs>
 
   <!-- ===== TITLE ===== -->
-  <text x="410" y="30" text-anchor="middle" fill="#ffffff" font-size="18" font-weight="700" letter-spacing="0.5">Helix Stax Infrastructure</text>
-  <text x="410" y="50" text-anchor="middle" fill="#8b949e" font-size="11">K3s on Hetzner Cloud — Traffic Flow and Component Map</text>
+  <g class="layer-title">
+    <text x="410" y="30" text-anchor="middle" fill="#ffffff" font-size="18" font-weight="700" letter-spacing="0.5">Helix Stax Infrastructure</text>
+    <text x="410" y="50" text-anchor="middle" fill="#8b949e" font-size="11">K3s on Hetzner Cloud -- Traffic Flow and Component Map</text>
+  </g>
 
   <!-- ===== INTERNET (top) ===== -->
-  <rect x="310" y="66" width="200" height="34" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1.2" filter="url(#shadow)"/>
-  <text x="410" y="87" text-anchor="middle" fill="#8b949e" font-size="12" font-weight="600">Internet / End Users</text>
+  <g class="layer-title">
+    <rect x="310" y="66" width="200" height="34" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1.2" filter="url(#shadow)"/>
+    <text x="410" y="87" text-anchor="middle" fill="#8b949e" font-size="12" font-weight="600">Internet / End Users</text>
+  </g>
 
-  <!-- Arrow: Internet -> Cloudflare -->
-  <line x1="410" y1="100" x2="410" y2="118" stroke="#52A882" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
+  <!-- Arrow: Internet -> Cloudflare (animated) -->
+  <line x1="410" y1="100" x2="410" y2="118" stroke="#52A882" stroke-width="1.5" class="edge-flow"/>
+  <!-- Traveling dot: Internet -> Cloudflare -->
+  <circle class="packet-1" cx="410" cy="100" r="2.5" fill="#52A882"/>
 
   <!-- ===== LAYER 1: EDGE (Cloudflare) ===== -->
-  <rect x="40" y="122" width="740" height="120" rx="10" fill="#0f1923" stroke="#52A882" stroke-width="1.5" opacity="0.9"/>
-  <text x="58" y="143" fill="#52A882" font-size="10" font-weight="700" letter-spacing="1.5">LAYER 1  --  CLOUDFLARE EDGE</text>
+  <g class="layer-1">
+    <rect x="40" y="122" width="740" height="120" rx="10" fill="#0f1923" stroke="#52A882" stroke-width="1.5" opacity="0.9"/>
+    <text x="58" y="143" fill="#52A882" font-size="10" font-weight="700" letter-spacing="1.5">LAYER 1  --  CLOUDFLARE EDGE</text>
 
-  <!-- Cloudflare WAF/CDN/DNS node -->
-  <rect x="60" y="152" width="200" height="52" rx="8" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
-  <text x="160" y="171" text-anchor="middle" fill="#52A882" font-size="12" font-weight="700">Cloudflare</text>
-  <text x="160" y="186" text-anchor="middle" fill="#8b949e" font-size="9.5">WAF  ·  DDoS Protection  ·  CDN</text>
-  <text x="160" y="198" text-anchor="middle" fill="#8b949e" font-size="9.5">DNS  ·  TLS Termination</text>
+    <!-- Cloudflare WAF/CDN/DNS node (glowing) -->
+    <g class="node-glow-teal">
+      <rect x="60" y="152" width="200" height="52" rx="8" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
+      <text x="160" y="171" text-anchor="middle" fill="#52A882" font-size="12" font-weight="700">Cloudflare</text>
+      <text x="160" y="186" text-anchor="middle" fill="#8b949e" font-size="9.5">WAF  .  DDoS Protection  .  CDN</text>
+      <text x="160" y="198" text-anchor="middle" fill="#8b949e" font-size="9.5">DNS  .  TLS Termination</text>
+      <!-- Status indicator -->
+      <circle cx="248" cy="158" r="3" fill="#52A882" class="status-dot"/>
+    </g>
 
-  <!-- Cloudflare Zero Trust node -->
-  <rect x="300" y="152" width="170" height="52" rx="8" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
-  <text x="385" y="171" text-anchor="middle" fill="#52A882" font-size="12" font-weight="700">Zero Trust Access</text>
-  <text x="385" y="186" text-anchor="middle" fill="#8b949e" font-size="9.5">WARP  ·  JWT Vault Auth</text>
-  <text x="385" y="198" text-anchor="middle" fill="#8b949e" font-size="9.5">App Policies  ·  RBAC</text>
+    <!-- Cloudflare Zero Trust node -->
+    <rect x="300" y="152" width="170" height="52" rx="8" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
+    <text x="385" y="171" text-anchor="middle" fill="#52A882" font-size="12" font-weight="700">Zero Trust Access</text>
+    <text x="385" y="186" text-anchor="middle" fill="#8b949e" font-size="9.5">WARP  .  JWT Vault Auth</text>
+    <text x="385" y="198" text-anchor="middle" fill="#8b949e" font-size="9.5">App Policies  .  RBAC</text>
 
-  <!-- Cloudflare Tunnel node -->
-  <rect x="510" y="152" width="160" height="52" rx="8" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
-  <text x="590" y="171" text-anchor="middle" fill="#52A882" font-size="12" font-weight="700">Cloudflare Tunnel</text>
-  <text x="590" y="186" text-anchor="middle" fill="#8b949e" font-size="9.5">cloudflared  ·  No open</text>
-  <text x="590" y="198" text-anchor="middle" fill="#8b949e" font-size="9.5">inbound ports</text>
+    <!-- Cloudflare Tunnel node -->
+    <rect x="510" y="152" width="160" height="52" rx="8" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
+    <text x="590" y="171" text-anchor="middle" fill="#52A882" font-size="12" font-weight="700">Cloudflare Tunnel</text>
+    <text x="590" y="186" text-anchor="middle" fill="#8b949e" font-size="9.5">cloudflared  .  No open</text>
+    <text x="590" y="198" text-anchor="middle" fill="#8b949e" font-size="9.5">inbound ports</text>
 
-  <!-- Arrow: Cloudflare -> Zero Trust -->
-  <line x1="260" y1="178" x2="298" y2="178" stroke="#52A882" stroke-width="1.2" marker-end="url(#arrow-teal)"/>
-  <!-- Arrow: Zero Trust -> Tunnel -->
-  <line x1="470" y1="178" x2="508" y2="178" stroke="#52A882" stroke-width="1.2" marker-end="url(#arrow-teal)"/>
+    <!-- Arrow: Cloudflare -> Zero Trust (animated) -->
+    <line x1="260" y1="178" x2="298" y2="178" stroke="#52A882" stroke-width="1.2" class="edge-flow"/>
+    <!-- Arrow: Zero Trust -> Tunnel (animated) -->
+    <line x1="470" y1="178" x2="508" y2="178" stroke="#52A882" stroke-width="1.2" class="edge-flow"/>
 
-  <!-- Arrow: Cloudflare Tunnel -> K3s Traefik -->
-  <line x1="590" y1="204" x2="590" y2="250" stroke="#52A882" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-teal)"/>
-  <!-- Arrow: Cloudflare WAF -> Traefik (public traffic) -->
-  <line x1="260" y1="204" x2="295" y2="250" stroke="#52A882" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
+    <!-- Horizontal traveling dots -->
+    <circle class="packet-h1" cx="260" cy="178" r="2.5" fill="#52A882"/>
+    <circle class="packet-h2" cx="470" cy="178" r="2.5" fill="#52A882"/>
+  </g>
+
+  <!-- Arrow: Cloudflare Tunnel -> K3s Traefik (animated encrypted tunnel) -->
+  <line x1="590" y1="204" x2="590" y2="250" stroke="#52A882" stroke-width="1.5" class="edge-flow-slow"/>
+  <!-- Arrow: Cloudflare WAF -> Traefik (public traffic, animated) -->
+  <line x1="260" y1="204" x2="295" y2="250" stroke="#52A882" stroke-width="1.5" class="edge-flow"/>
+  <!-- Traveling dot: Tunnel -> Traefik -->
+  <circle class="packet-2" cx="590" cy="204" r="2.5" fill="#52A882"/>
 
   <!-- ===== LAYER 2: CLUSTER ===== -->
-  <rect x="40" y="254" width="740" height="120" rx="10" fill="#0f1923" stroke="#C4975A" stroke-width="1.5" opacity="0.9"/>
-  <text x="58" y="275" fill="#C4975A" font-size="10" font-weight="700" letter-spacing="1.5">LAYER 2  --  K3S CLUSTER  (Hetzner Cloud)</text>
+  <g class="layer-2">
+    <rect x="40" y="254" width="740" height="120" rx="10" fill="#0f1923" stroke="#C4975A" stroke-width="1.5" opacity="0.9"/>
+    <text x="58" y="275" fill="#C4975A" font-size="10" font-weight="700" letter-spacing="1.5">LAYER 2  --  K3S CLUSTER  (Hetzner Cloud)</text>
 
-  <!-- Traefik node -->
-  <rect x="60" y="284" width="160" height="52" rx="8" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
-  <text x="140" y="303" text-anchor="middle" fill="#C4975A" font-size="12" font-weight="700">Traefik</text>
-  <text x="140" y="318" text-anchor="middle" fill="#8b949e" font-size="9.5">Ingress Controller</text>
-  <text x="140" y="330" text-anchor="middle" fill="#8b949e" font-size="9.5">IngressRoute CRDs</text>
+    <!-- Traefik node (glowing) -->
+    <g class="node-glow-gold">
+      <rect x="60" y="284" width="160" height="52" rx="8" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
+      <text x="140" y="303" text-anchor="middle" fill="#C4975A" font-size="12" font-weight="700">Traefik</text>
+      <text x="140" y="318" text-anchor="middle" fill="#8b949e" font-size="9.5">Ingress Controller</text>
+      <text x="140" y="330" text-anchor="middle" fill="#8b949e" font-size="9.5">IngressRoute CRDs</text>
+      <circle cx="208" cy="290" r="3" fill="#C4975A" class="status-dot"/>
+    </g>
 
-  <!-- helix-stax-cp node -->
-  <rect x="270" y="284" width="200" height="52" rx="8" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
-  <text x="370" y="303" text-anchor="middle" fill="#C4975A" font-size="12" font-weight="700">helix-stax-cp</text>
-  <text x="370" y="318" text-anchor="middle" fill="#8b949e" font-size="9.5">Control Plane  ·  178.156.233.12</text>
-  <text x="370" y="330" text-anchor="middle" fill="#8b949e" font-size="9.5">4 vCPU  ·  8 GB RAM  ·  Falkenstein</text>
+    <!-- helix-stax-cp node -->
+    <rect x="270" y="284" width="200" height="52" rx="8" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
+    <text x="370" y="303" text-anchor="middle" fill="#C4975A" font-size="12" font-weight="700">helix-stax-cp</text>
+    <text x="370" y="318" text-anchor="middle" fill="#8b949e" font-size="9.5">Control Plane  .  178.156.233.12</text>
+    <text x="370" y="330" text-anchor="middle" fill="#8b949e" font-size="9.5">4 vCPU  .  8 GB RAM  .  Falkenstein</text>
 
-  <!-- helix-stax-vps node -->
-  <rect x="520" y="284" width="200" height="52" rx="8" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
-  <text x="620" y="303" text-anchor="middle" fill="#C4975A" font-size="12" font-weight="700">helix-stax-vps</text>
-  <text x="620" y="318" text-anchor="middle" fill="#8b949e" font-size="9.5">Worker  ·  5.78.145.30</text>
-  <text x="620" y="330" text-anchor="middle" fill="#8b949e" font-size="9.5">Role TBD  ·  Rebuild Pending</text>
+    <!-- helix-stax-vps node -->
+    <rect x="520" y="284" width="200" height="52" rx="8" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
+    <text x="620" y="303" text-anchor="middle" fill="#C4975A" font-size="12" font-weight="700">helix-stax-vps</text>
+    <text x="620" y="318" text-anchor="middle" fill="#8b949e" font-size="9.5">Worker  .  5.78.145.30</text>
+    <text x="620" y="330" text-anchor="middle" fill="#8b949e" font-size="9.5">Role TBD  .  Rebuild Pending</text>
 
-  <!-- Arrows: Traefik -> nodes -->
-  <line x1="220" y1="310" x2="268" y2="310" stroke="#C4975A" stroke-width="1.2" marker-end="url(#arrow-gold)"/>
-  <line x1="470" y1="310" x2="518" y2="310" stroke="#C4975A" stroke-width="1.2" marker-end="url(#arrow-gold)"/>
+    <!-- Arrows: Traefik -> nodes (animated) -->
+    <line x1="220" y1="310" x2="268" y2="310" stroke="#C4975A" stroke-width="1.2" class="edge-flow"/>
+    <line x1="470" y1="310" x2="518" y2="310" stroke="#C4975A" stroke-width="1.2" class="edge-flow"/>
 
-  <!-- Arrow: Layer 2 -> Layer 3 -->
-  <line x1="410" y1="374" x2="410" y2="392" stroke="#52A882" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
+    <!-- Horizontal traveling dots -->
+    <circle class="packet-h3" cx="220" cy="310" r="2.5" fill="#C4975A"/>
+    <circle class="packet-h4" cx="470" cy="310" r="2.5" fill="#C4975A"/>
+  </g>
+
+  <!-- Arrow: Layer 2 -> Layer 3 (animated) -->
+  <line x1="410" y1="374" x2="410" y2="392" stroke="#52A882" stroke-width="1.5" class="edge-flow"/>
+  <circle class="packet-3" cx="410" cy="374" r="2.5" fill="#52A882"/>
 
   <!-- ===== LAYER 3: PLATFORM SERVICES ===== -->
-  <rect x="40" y="396" width="740" height="140" rx="10" fill="#0f1923" stroke="#52A882" stroke-width="1.5" opacity="0.9"/>
-  <text x="58" y="417" fill="#52A882" font-size="10" font-weight="700" letter-spacing="1.5">LAYER 3  --  PLATFORM SERVICES</text>
+  <g class="layer-3">
+    <rect x="40" y="396" width="740" height="140" rx="10" fill="#0f1923" stroke="#52A882" stroke-width="1.5" opacity="0.9"/>
+    <text x="58" y="417" fill="#52A882" font-size="10" font-weight="700" letter-spacing="1.5">LAYER 3  --  PLATFORM SERVICES</text>
 
-  <!-- Zitadel -->
-  <rect x="60" y="425" width="120" height="48" rx="7" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
-  <text x="120" y="444" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Zitadel</text>
-  <text x="120" y="457" text-anchor="middle" fill="#8b949e" font-size="9">Identity  ·  OIDC</text>
-  <text x="120" y="468" text-anchor="middle" fill="#8b949e" font-size="9">RBAC</text>
+    <!-- Zitadel (glowing) -->
+    <g class="node-glow-teal">
+      <rect x="60" y="425" width="120" height="48" rx="7" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
+      <text x="120" y="444" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Zitadel</text>
+      <text x="120" y="457" text-anchor="middle" fill="#8b949e" font-size="9">Identity  .  OIDC</text>
+      <text x="120" y="468" text-anchor="middle" fill="#8b949e" font-size="9">RBAC</text>
+      <circle cx="168" cy="431" r="3" fill="#52A882" class="status-dot"/>
+    </g>
 
-  <!-- CloudNativePG -->
-  <rect x="195" y="425" width="120" height="48" rx="7" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
-  <text x="255" y="444" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">CloudNativePG</text>
-  <text x="255" y="457" text-anchor="middle" fill="#8b949e" font-size="9">PostgreSQL  ·  HA</text>
-  <text x="255" y="468" text-anchor="middle" fill="#8b949e" font-size="9">pgvector</text>
+    <!-- CloudNativePG -->
+    <rect x="195" y="425" width="120" height="48" rx="7" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
+    <text x="255" y="444" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">CloudNativePG</text>
+    <text x="255" y="457" text-anchor="middle" fill="#8b949e" font-size="9">PostgreSQL  .  HA</text>
+    <text x="255" y="468" text-anchor="middle" fill="#8b949e" font-size="9">pgvector</text>
 
-  <!-- Valkey -->
-  <rect x="330" y="425" width="110" height="48" rx="7" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
-  <text x="385" y="444" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Valkey</text>
-  <text x="385" y="457" text-anchor="middle" fill="#8b949e" font-size="9">Cache  ·  Queue</text>
-  <text x="385" y="468" text-anchor="middle" fill="#8b949e" font-size="9">Sessions</text>
+    <!-- Valkey -->
+    <rect x="330" y="425" width="110" height="48" rx="7" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
+    <text x="385" y="444" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Valkey</text>
+    <text x="385" y="457" text-anchor="middle" fill="#8b949e" font-size="9">Cache  .  Queue</text>
+    <text x="385" y="468" text-anchor="middle" fill="#8b949e" font-size="9">Sessions</text>
 
-  <!-- MinIO -->
-  <rect x="455" y="425" width="110" height="48" rx="7" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
-  <text x="510" y="444" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">MinIO</text>
-  <text x="510" y="457" text-anchor="middle" fill="#8b949e" font-size="9">Object Storage</text>
-  <text x="510" y="468" text-anchor="middle" fill="#8b949e" font-size="9">S3-compatible</text>
+    <!-- MinIO -->
+    <rect x="455" y="425" width="110" height="48" rx="7" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
+    <text x="510" y="444" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">MinIO</text>
+    <text x="510" y="457" text-anchor="middle" fill="#8b949e" font-size="9">Object Storage</text>
+    <text x="510" y="468" text-anchor="middle" fill="#8b949e" font-size="9">S3-compatible</text>
 
-  <!-- OpenBao + ESO -->
-  <rect x="580" y="425" width="110" height="48" rx="7" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
-  <text x="635" y="444" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">OpenBao + ESO</text>
-  <text x="635" y="457" text-anchor="middle" fill="#8b949e" font-size="9">Secrets  ·  Dynamic</text>
-  <text x="635" y="468" text-anchor="middle" fill="#8b949e" font-size="9">Creds  ·  Sync</text>
+    <!-- OpenBao + ESO -->
+    <rect x="580" y="425" width="110" height="48" rx="7" fill="#1a2332" stroke="#52A882" stroke-width="1" filter="url(#shadow)"/>
+    <text x="635" y="444" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">OpenBao + ESO</text>
+    <text x="635" y="457" text-anchor="middle" fill="#8b949e" font-size="9">Secrets  .  Dynamic</text>
+    <text x="635" y="468" text-anchor="middle" fill="#8b949e" font-size="9">Creds  .  Sync</text>
 
-  <!-- CI/CD sub-group -->
-  <rect x="700" y="425" width="65" height="48" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
-  <text x="732" y="444" text-anchor="middle" fill="#C4975A" font-size="10" font-weight="600">Devtron</text>
-  <text x="732" y="457" text-anchor="middle" fill="#8b949e" font-size="8">CI/CD</text>
-  <text x="732" y="468" text-anchor="middle" fill="#8b949e" font-size="8">ArgoCD</text>
+    <!-- Devtron + ArgoCD -->
+    <rect x="700" y="425" width="65" height="48" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
+    <text x="732" y="444" text-anchor="middle" fill="#C4975A" font-size="10" font-weight="600">Devtron</text>
+    <text x="732" y="457" text-anchor="middle" fill="#8b949e" font-size="8">CI/CD</text>
+    <text x="732" y="468" text-anchor="middle" fill="#8b949e" font-size="8">ArgoCD</text>
 
-  <!-- Arrow: Layer 3 -> Layer 4 -->
-  <line x1="410" y1="536" x2="410" y2="554" stroke="#52A882" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
+    <!-- Interconnection lines between platform services (subtle, animated) -->
+    <line x1="180" y1="449" x2="195" y2="449" stroke="#52A882" stroke-width="0.8" opacity="0.4" class="edge-flow"/>
+    <line x1="315" y1="449" x2="330" y2="449" stroke="#52A882" stroke-width="0.8" opacity="0.4" class="edge-flow"/>
+    <line x1="440" y1="449" x2="455" y2="449" stroke="#52A882" stroke-width="0.8" opacity="0.4" class="edge-flow"/>
+    <line x1="565" y1="449" x2="580" y2="449" stroke="#52A882" stroke-width="0.8" opacity="0.4" class="edge-flow"/>
+    <line x1="690" y1="449" x2="700" y2="449" stroke="#C4975A" stroke-width="0.8" opacity="0.4" class="edge-flow"/>
+  </g>
+
+  <!-- Arrow: Layer 3 -> Layer 4 (animated) -->
+  <line x1="410" y1="536" x2="410" y2="554" stroke="#52A882" stroke-width="1.5" class="edge-flow"/>
+  <circle class="packet-4" cx="410" cy="536" r="2.5" fill="#52A882"/>
 
   <!-- ===== LAYER 4: APPLICATIONS ===== -->
-  <rect x="40" y="558" width="740" height="148" rx="10" fill="#0f1923" stroke="#C4975A" stroke-width="1.5" opacity="0.9"/>
-  <text x="58" y="579" fill="#C4975A" font-size="10" font-weight="700" letter-spacing="1.5">LAYER 4  --  APPLICATIONS</text>
+  <g class="layer-4">
+    <rect x="40" y="558" width="740" height="148" rx="10" fill="#0f1923" stroke="#C4975A" stroke-width="1.5" opacity="0.9"/>
+    <text x="58" y="579" fill="#C4975A" font-size="10" font-weight="700" letter-spacing="1.5">LAYER 4  --  APPLICATIONS</text>
 
-  <!-- n8n -->
-  <rect x="58" y="588" width="110" height="52" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
-  <text x="113" y="607" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">n8n</text>
-  <text x="113" y="620" text-anchor="middle" fill="#8b949e" font-size="9">Workflow</text>
-  <text x="113" y="632" text-anchor="middle" fill="#8b949e" font-size="9">Automation</text>
+    <!-- n8n -->
+    <rect x="58" y="588" width="110" height="52" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
+    <text x="113" y="607" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">n8n</text>
+    <text x="113" y="620" text-anchor="middle" fill="#8b949e" font-size="9">Workflow</text>
+    <text x="113" y="632" text-anchor="middle" fill="#8b949e" font-size="9">Automation</text>
 
-  <!-- Rocket.Chat -->
-  <rect x="182" y="588" width="110" height="52" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
-  <text x="237" y="607" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Rocket.Chat</text>
-  <text x="237" y="620" text-anchor="middle" fill="#8b949e" font-size="9">Team Comms</text>
-  <text x="237" y="632" text-anchor="middle" fill="#8b949e" font-size="9">Agent Alerts</text>
+    <!-- Rocket.Chat -->
+    <rect x="182" y="588" width="110" height="52" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
+    <text x="237" y="607" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Rocket.Chat</text>
+    <text x="237" y="620" text-anchor="middle" fill="#8b949e" font-size="9">Team Comms</text>
+    <text x="237" y="632" text-anchor="middle" fill="#8b949e" font-size="9">Agent Alerts</text>
 
-  <!-- Monitoring group -->
-  <rect x="306" y="588" width="150" height="52" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
-  <text x="381" y="607" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Monitoring</text>
-  <text x="381" y="620" text-anchor="middle" fill="#8b949e" font-size="9">Prometheus  ·  Grafana</text>
-  <text x="381" y="632" text-anchor="middle" fill="#8b949e" font-size="9">Loki  ·  Alertmanager</text>
+    <!-- Monitoring group -->
+    <rect x="306" y="588" width="150" height="52" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
+    <text x="381" y="607" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Monitoring</text>
+    <text x="381" y="620" text-anchor="middle" fill="#8b949e" font-size="9">Prometheus  .  Grafana</text>
+    <text x="381" y="632" text-anchor="middle" fill="#8b949e" font-size="9">Loki  .  Alertmanager</text>
 
-  <!-- Backstage -->
-  <rect x="470" y="588" width="110" height="52" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
-  <text x="525" y="607" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Backstage</text>
-  <text x="525" y="620" text-anchor="middle" fill="#8b949e" font-size="9">Developer</text>
-  <text x="525" y="632" text-anchor="middle" fill="#8b949e" font-size="9">Portal</text>
+    <!-- Backstage -->
+    <rect x="470" y="588" width="110" height="52" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
+    <text x="525" y="607" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Backstage</text>
+    <text x="525" y="620" text-anchor="middle" fill="#8b949e" font-size="9">Developer</text>
+    <text x="525" y="632" text-anchor="middle" fill="#8b949e" font-size="9">Portal</text>
 
-  <!-- Outline -->
-  <rect x="594" y="588" width="110" height="52" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
-  <text x="649" y="607" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Outline</text>
-  <text x="649" y="620" text-anchor="middle" fill="#8b949e" font-size="9">Knowledge</text>
-  <text x="649" y="632" text-anchor="middle" fill="#8b949e" font-size="9">Base  ·  Docs</text>
+    <!-- Outline -->
+    <rect x="594" y="588" width="110" height="52" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
+    <text x="649" y="607" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Outline</text>
+    <text x="649" y="620" text-anchor="middle" fill="#8b949e" font-size="9">Knowledge</text>
+    <text x="649" y="632" text-anchor="middle" fill="#8b949e" font-size="9">Base  .  Docs</text>
 
-  <!-- AI group -->
-  <rect x="58" y="652" width="220" height="40" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
-  <text x="168" y="668" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Ollama + Open WebUI</text>
-  <text x="168" y="682" text-anchor="middle" fill="#8b949e" font-size="9">Local LLM Inference  ·  SearXNG</text>
+    <!-- AI group -->
+    <rect x="58" y="652" width="220" height="40" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
+    <text x="168" y="668" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Ollama + Open WebUI</text>
+    <text x="168" y="682" text-anchor="middle" fill="#8b949e" font-size="9">Local LLM Inference  .  SearXNG</text>
 
-  <!-- Harbor -->
-  <rect x="594" y="652" width="110" height="40" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
-  <text x="649" y="668" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Harbor</text>
-  <text x="649" y="682" text-anchor="middle" fill="#8b949e" font-size="9">Container Registry</text>
+    <!-- Harbor -->
+    <rect x="594" y="652" width="110" height="40" rx="7" fill="#1a2332" stroke="#C4975A" stroke-width="1" filter="url(#shadow)"/>
+    <text x="649" y="668" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Harbor</text>
+    <text x="649" y="682" text-anchor="middle" fill="#8b949e" font-size="9">Container Registry</text>
+  </g>
 
-  <!-- Arrow: Layer 4 -> External -->
-  <line x1="410" y1="706" x2="410" y2="724" stroke="#4a5568" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-dim)"/>
+  <!-- Arrow: Layer 4 -> External (animated) -->
+  <line x1="410" y1="706" x2="410" y2="724" stroke="#4a5568" stroke-width="1.5" class="edge-flow-slow"/>
+  <circle class="packet-5" cx="410" cy="706" r="2.5" fill="#4a5568"/>
 
   <!-- ===== LAYER 5: EXTERNAL ===== -->
-  <rect x="40" y="728" width="740" height="84" rx="10" fill="#0f1923" stroke="#30363d" stroke-width="1.2" opacity="0.9"/>
-  <text x="58" y="748" fill="#8b949e" font-size="10" font-weight="700" letter-spacing="1.5">LAYER 5  --  EXTERNAL SERVICES</text>
+  <g class="layer-5">
+    <rect x="40" y="728" width="740" height="84" rx="10" fill="#0f1923" stroke="#30363d" stroke-width="1.2" opacity="0.9"/>
+    <text x="58" y="748" fill="#8b949e" font-size="10" font-weight="700" letter-spacing="1.5">LAYER 5  --  EXTERNAL SERVICES</text>
 
-  <!-- Backblaze B2 -->
-  <rect x="58" y="756" width="160" height="44" rx="7" fill="#161b22" stroke="#30363d" stroke-width="1" filter="url(#shadow)"/>
-  <text x="138" y="774" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Backblaze B2</text>
-  <text x="138" y="789" text-anchor="middle" fill="#8b949e" font-size="9">Offsite Backup via Velero</text>
+    <!-- Backblaze B2 -->
+    <rect x="58" y="756" width="160" height="44" rx="7" fill="#161b22" stroke="#30363d" stroke-width="1" filter="url(#shadow)"/>
+    <text x="138" y="774" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Backblaze B2</text>
+    <text x="138" y="789" text-anchor="middle" fill="#8b949e" font-size="9">Offsite Backup via Velero</text>
 
-  <!-- GitHub -->
-  <rect x="240" y="756" width="160" height="44" rx="7" fill="#161b22" stroke="#30363d" stroke-width="1" filter="url(#shadow)"/>
-  <text x="320" y="774" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">GitHub</text>
-  <text x="320" y="789" text-anchor="middle" fill="#8b949e" font-size="9">Source  ·  GitOps via ArgoCD</text>
+    <!-- GitHub -->
+    <rect x="240" y="756" width="160" height="44" rx="7" fill="#161b22" stroke="#30363d" stroke-width="1" filter="url(#shadow)"/>
+    <text x="320" y="774" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">GitHub</text>
+    <text x="320" y="789" text-anchor="middle" fill="#8b949e" font-size="9">Source  .  GitOps via ArgoCD</text>
 
-  <!-- Google Workspace -->
-  <rect x="422" y="756" width="170" height="44" rx="7" fill="#161b22" stroke="#30363d" stroke-width="1" filter="url(#shadow)"/>
-  <text x="507" y="774" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Google Workspace</text>
-  <text x="507" y="789" text-anchor="middle" fill="#8b949e" font-size="9">helixstax.com  ·  Email  ·  Docs</text>
+    <!-- Google Workspace -->
+    <rect x="422" y="756" width="170" height="44" rx="7" fill="#161b22" stroke="#30363d" stroke-width="1" filter="url(#shadow)"/>
+    <text x="507" y="774" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Google Workspace</text>
+    <text x="507" y="789" text-anchor="middle" fill="#8b949e" font-size="9">helixstax.com  .  Email  .  Docs</text>
 
-  <!-- Hetzner API -->
-  <rect x="614" y="756" width="150" height="44" rx="7" fill="#161b22" stroke="#30363d" stroke-width="1" filter="url(#shadow)"/>
-  <text x="689" y="774" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Hetzner Cloud</text>
-  <text x="689" y="789" text-anchor="middle" fill="#8b949e" font-size="9">VPS Provider  ·  API Rebuild</text>
-
-  <!-- ===== SECURITY OVERLAY (right side badge strip) ===== -->
-  <rect x="720" y="122" width="100" height="110" rx="8" fill="#0d1117" stroke="#C4975A" stroke-width="1" opacity="0.0"/>
-
-  <!-- Security badge: CrowdSec -->
-  <rect x="718" y="254" width="0" height="0"/>
-
-  <!-- ===== SECURITY SIDEBAR ===== -->
-  <!-- Thin vertical security strip on far right -->
-  <!-- Already covered by CrowdSec label on nodes; add a compact legend instead -->
+    <!-- Hetzner API -->
+    <rect x="614" y="756" width="150" height="44" rx="7" fill="#161b22" stroke="#30363d" stroke-width="1" filter="url(#shadow)"/>
+    <text x="689" y="774" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600">Hetzner Cloud</text>
+    <text x="689" y="789" text-anchor="middle" fill="#8b949e" font-size="9">VPS Provider  .  API Rebuild</text>
+  </g>
 
   <!-- ===== LEGEND / SECURITY OVERLAY (bottom bar) ===== -->
-  <rect x="40" y="822" width="740" height="56" rx="8" fill="#0f1923" stroke="#30363d" stroke-width="1"/>
-  <text x="58" y="840" fill="#8b949e" font-size="9.5" font-weight="700" letter-spacing="1">SECURITY OVERLAY</text>
+  <g class="layer-legend">
+    <rect x="40" y="822" width="740" height="56" rx="8" fill="#0f1923" stroke="#30363d" stroke-width="1"/>
+    <text x="58" y="840" fill="#8b949e" font-size="9.5" font-weight="700" letter-spacing="1">SECURITY OVERLAY</text>
 
-  <!-- CrowdSec -->
-  <rect x="58" y="847" width="8" height="8" rx="2" fill="#C4975A"/>
-  <text x="72" y="856" fill="#8b949e" font-size="9.5">CrowdSec IDS  --  each node</text>
+    <!-- CrowdSec -->
+    <rect x="58" y="847" width="8" height="8" rx="2" fill="#C4975A"/>
+    <text x="72" y="856" fill="#8b949e" font-size="9.5">CrowdSec IDS -- each node</text>
 
-  <!-- CIS Level 1 -->
-  <rect x="230" y="847" width="8" height="8" rx="2" fill="#C4975A"/>
-  <text x="244" y="856" fill="#8b949e" font-size="9.5">dev-sec hardening  ·  CIS Level 1</text>
+    <!-- CIS Level 1 -->
+    <rect x="230" y="847" width="8" height="8" rx="2" fill="#C4975A"/>
+    <text x="244" y="856" fill="#8b949e" font-size="9.5">dev-sec hardening . CIS Level 1</text>
 
-  <!-- SELinux -->
-  <rect x="430" y="847" width="8" height="8" rx="2" fill="#C4975A"/>
-  <text x="444" y="856" fill="#8b949e" font-size="9.5">SELinux enforcing</text>
+    <!-- SELinux -->
+    <rect x="430" y="847" width="8" height="8" rx="2" fill="#C4975A"/>
+    <text x="444" y="856" fill="#8b949e" font-size="9.5">SELinux enforcing</text>
 
-  <!-- No secrets in git -->
-  <rect x="570" y="847" width="8" height="8" rx="2" fill="#C4975A"/>
-  <text x="584" y="856" fill="#8b949e" font-size="9.5">No secrets in git  ·  OpenBao dynamic creds</text>
+    <!-- No secrets in git -->
+    <rect x="570" y="847" width="8" height="8" rx="2" fill="#C4975A"/>
+    <text x="584" y="856" fill="#8b949e" font-size="9.5">No secrets in git . OpenBao dynamic creds</text>
 
-  <!-- ===== LEGEND: arrows ===== -->
-  <line x1="58" y1="868" x2="90" y2="868" stroke="#52A882" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
-  <text x="96" y="872" fill="#8b949e" font-size="9">Traffic flow</text>
-  <line x1="175" y1="868" x2="207" y2="868" stroke="#52A882" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-teal)"/>
-  <text x="213" y="872" fill="#8b949e" font-size="9">Encrypted tunnel</text>
-  <line x1="316" y1="868" x2="348" y2="868" stroke="#4a5568" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-dim)"/>
-  <text x="354" y="872" fill="#8b949e" font-size="9">External dependency</text>
+    <!-- Legend: arrows -->
+    <line x1="58" y1="868" x2="90" y2="868" stroke="#52A882" stroke-width="1.5" class="edge-flow"/>
+    <text x="96" y="872" fill="#8b949e" font-size="9">Traffic flow (animated)</text>
+    <line x1="230" y1="868" x2="262" y2="868" stroke="#52A882" stroke-width="1.5" class="edge-flow-slow"/>
+    <text x="268" y="872" fill="#8b949e" font-size="9">Encrypted tunnel</text>
+    <line x1="390" y1="868" x2="422" y2="868" stroke="#4a5568" stroke-width="1.5" class="edge-flow-slow"/>
+    <text x="428" y="872" fill="#8b949e" font-size="9">External dependency</text>
 
-  <!-- ===== DOMAIN LABELS (helixstax.com / .net) ===== -->
-  <text x="750" y="143" text-anchor="end" fill="#52A882" font-size="8.5" opacity="0.7">helixstax.com</text>
-  <text x="750" y="155" text-anchor="end" fill="#C4975A" font-size="8.5" opacity="0.7">helixstax.net</text>
+    <!-- Domain labels -->
+    <text x="750" y="840" text-anchor="end" fill="#52A882" font-size="8.5" opacity="0.7">helixstax.com</text>
+    <text x="750" y="852" text-anchor="end" fill="#C4975A" font-size="8.5" opacity="0.7">helixstax.net</text>
+  </g>
 
 </svg>
