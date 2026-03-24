@@ -1,0 +1,59 @@
+# kube-prometheus-stack values for Helix Stax
+# Chart: prometheus-community/kube-prometheus-stack
+# Install: helm install monitoring prometheus-community/kube-prometheus-stack -n monitoring -f values-prometheus-stack.yaml
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+grafana:
+  adminPassword: helix-temp-password  # TODO: replace with Zitadel OIDC
+  persistence:
+    enabled: false  # Config managed via Helm values
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          resources:
+            requests:
+              storage: 10Gi
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+# K3s doesn't expose these endpoints in the standard way
+kubeControllerManager:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeScheduler:
+  enabled: false

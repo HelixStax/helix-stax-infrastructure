@@ -1,0 +1,14 @@
+# Promtail values for Helix Stax
+# Chart: grafana/promtail
+# Install: helm install promtail grafana/promtail -n monitoring -f values-promtail.yaml
+
+config:
+  clients:
+    - url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
