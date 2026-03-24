@@ -1,92 +1,70 @@
 # Helix Stax Infrastructure
 
-Production Kubernetes infrastructure for [Helix Stax](https://helixstax.com) — AI-powered consulting and automation platform.
+IaC, configuration, and operational docs for the Helix Stax platform — a self-hosted
+Kubernetes environment on Hetzner Cloud.
 
 ## Stack
 
-- **Orchestration**: K3s on Hetzner Cloud (AlmaLinux 9.7)
-- **CNI**: Cilium (zero-trust networking)
-- **Database**: CloudNativePG (PostgreSQL + pgvector + AGE + pg_analytics)
-- **Ingress**: Traefik + Cloudflare for Platforms
-- **CI/CD**: Devtron (bundles ArgoCD) + GitHub + Harbor
-- **Monitoring**: Prometheus + Grafana + Loki
-- **Secrets**: OpenBao + External Secrets Operator
-- **Backup**: Velero → MinIO → Backblaze B2
-- **AI**: Ollama (batch) + Claude/OpenAI APIs (real-time) + pgvector
-- **Automation**: n8n + Flowise + Langchain
-- **Identity**: Authentik (Google SAML SSO)
-- **VPN**: Netbird (zero-trust)
+| Layer | Tool |
+|-------|------|
+| Provisioning | OpenTofu + Hetzner Cloud |
+| OS hardening | Ansible (CIS Level 1, SELinux enforcing) |
+| Orchestration | K3s on AlmaLinux 9.7 |
+| Ingress | Traefik + Cloudflare (CDN, WAF, Zero Trust) |
+| Identity | Zitadel (OIDC/SAML) |
+| Database | CloudNativePG (PostgreSQL) |
+| Cache | Valkey |
+| Secrets | OpenBao + External Secrets Operator |
+| Registry | Harbor |
+| Object storage | MinIO |
+| CI/CD | Devtron + ArgoCD |
+| Monitoring | Prometheus + Grafana + Loki |
+| IDS | CrowdSec |
+| Backup | Velero → MinIO → Backblaze B2 |
 
-## Architecture
+All production workloads deploy via Helm charts through Devtron CD. No Docker Compose in production.
 
-```
-Internet
-    |
-Cloudflare (CDN + DDoS + SSL)
-    |
-+--- Hetzner Cloud ------------------------------------+
-|                                                       |
-|  External VPS (8GB)       K3s Cluster                 |
-|  +----------------+      +-------------------------+  |
-|  | PostgreSQL     |      | helix-stax-cp (CP)      |  |
-|  | Redis          |      |   K3s API + Scheduler   |  |
-|  | Harbor         |      +-------------------------+  |
-|  | Authentik      |                |                  |
-|  | Netbird        |      +-------------------------+  |
-|  | MinIO          |      | helix-stax-worker-1     |  |
-|  | OpenBao        |      |   CloudNativePG         |  |
-|  | Vaultwarden    |      |   Ollama + n8n          |  |
-|  +----------------+      |   Traefik + Apps        |  |
-|                           |   Prometheus + Grafana  |  |
-|                           +-------------------------+  |
-+-------------------------------------------------------+
-    |
-Backblaze B2 (offsite backups)
-```
+## Nodes
 
-## Repo Structure
+| Name | Role | IP |
+|------|------|----|
+| heart | Control plane | 178.156.233.12 |
+| helix-worker-1 | Worker | 138.201.131.157 |
+
+## Directory Structure
 
 ```
 helix-stax-infrastructure/
+├── opentofu/          # Hetzner provisioning, Cloudflare DNS, firewall rules
+├── ansible/           # OS hardening, K3s install, CrowdSec, dev-sec roles
+├── helm/              # Helm value overrides for all in-cluster services
 ├── docs/
-│   ├── tech-stack.md              # Full tech stack reference
-│   ├── tools-inventory.md         # CLIs, Helm charts, pre-flight checklist
-│   ├── plans/
-│   │   ├── sprint-plan.md         # 10-phase buildout plan
-│   │   └── addendum-notes.md      # Decisions and context
-│   └── tutorials/
-│       ├── _index.md              # Tutorial series overview
-│       └── phase-00-hardening/    # Step-by-step server hardening
-├── opentofu/                      # Infrastructure as Code (Phase 1)
-├── helm/                          # Helm value overrides (Phase 3+)
-├── CHANGELOG.md
-└── README.md
+│   ├── architecture/  # ADRs
+│   ├── plans/         # Sprint plans and decisions
+│   ├── runbooks/      # Break-glass and operational procedures
+│   ├── sops/          # Standard operating procedures
+│   └── tutorials/     # Step-by-step phase walkthroughs
+├── scripts/           # One-off tooling and helpers
+└── shared/            # Configs shared across layers
 ```
 
-## Buildout Progress
+## Security Model
 
-| Phase | Name | Status |
-|-------|------|--------|
-| 0 | Server Hardening | ✅ Complete |
-| 1 | Foundation (Terraform + VPS) | Not started |
-| 2 | Management Services | Not started |
-| 3 | Cluster Security (Cilium) | Not started |
-| 4 | Data Layer (CloudNativePG) | Not started |
-| 5 | Observability | Not started |
-| 6 | Application Layer | Not started |
-| 7 | Multi-Tenant Hosting | Not started |
-| 8 | Backup & DR | Not started |
-| 9 | CI/CD Completion | Not started |
+- Cloudflare edge: DDoS protection, WAF, Zero Trust access for internal services
+- CrowdSec: Host-level IDS with crowdsourced threat intelligence
+- Ansible hardening runs before K3s install — CIS Level 1, SELinux enforcing, SSH lockdown
+- No secrets in git — all secrets via OpenBao, consumed by ESO into K3s secrets
 
-## Cost
+## Domains
 
-| Item | Monthly |
-|------|---------|
-| Hetzner (3 nodes) | ~$46 |
-| Backblaze B2 | ~$1-2 |
-| Cloudflare for Platforms | ~$20-50 (scales with clients) |
-| **Base** | **~$48** |
-| **With 10+ client sites** | **~$70-100** |
+- `helixstax.com` — public website, email, Google Workspace
+- `helixstax.net` — internal platform services (Grafana, Devtron, n8n, Rocket.Chat)
+
+## Key Docs
+
+- [Architecture decisions](docs/architecture/) — ADRs for all major choices
+- [Runbooks](docs/runbooks/) — incident response and operational procedures
+- [Sprint plan](docs/plans/sprint-plan.md) — phased buildout sequence
 
 ## License
 

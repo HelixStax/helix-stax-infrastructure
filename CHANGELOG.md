@@ -1,76 +1,74 @@
 # Changelog
 
-All notable changes to the Helix Stax infrastructure are documented here.
+All notable changes to this project will be documented in this file.
 
-## [0.2.0] - 2026-03-17
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### Phase 1: Foundation — Services VPS
+## [Unreleased]
 
-#### Added
-- VPS: helix-stax-vps (cpx31, 8GB, Hillsboro/hil, 5.78.145.30, ID: 124045581)
-- VPS Firewall: helix-vps-firewall (ID: 10712312) — SSH 2222 (admin IP only), HTTP, HTTPS
-- Docker CE 29.3.0 on VPS (upgraded from Debian repo 20.10)
-- docker-compose-plugin v5.1.0 on VPS
-- fail2ban on VPS (systemd backend, sshd jail on port 2222)
-- UFW on VPS: default-deny, allow 2222/80/443
-- /data directories on VPS: postgres, harbor, minio, authentik
-- Terraform split-location variables: cp_location (ash) + vps_location (hil)
+## [0.2.0] - 2026-03-24
 
-#### Changed
-- VPS replaced: cpx11 Ashburn (failed cloud-init) → cpx31 Hillsboro (manual provisioning)
-  - Old: ID 124041456, cpx11, ash, 5.161.225.106
-  - New: ID 124045581, cpx31, hil, 5.78.145.30
-- SSH port on VPS: 22 → 2222 (dual-port approach: verified 2222 first, then removed 22)
-- Local SSH config for helix-vps: Port 22 → Port 2222
-- Terraform variables.tf: single `location` split into `cp_location` + `vps_location`
-- VPS firewall SSH rule: 0.0.0.0/0 → admin IP only (173.40.165.150/32)
-- VPS server label added: role=services
+### Added
 
-#### Fixed
-- Terraform state stale entry: removed old VPS (124041456), imported real VPS (124045581)
-- Terraform plan: zero drift after import + apply
+- OpenTofu configuration rewritten for current architecture (Hetzner + Cloudflare providers)
+- Test server module (cpx11, temporary validation server)
+- Cloud-init template for AlmaLinux 9 (minimal — user + SSH key only)
+- `tofu-apply.sh` — vault-backed OpenTofu wrapper (secrets from Cloudflare vault)
+- 29 Gemini deep research prompts covering full infrastructure stack
+- 28 research outputs generated via OpenRouter (Gemini 2.5 Pro)
+- Ansible hardening architecture design (lockout prevention strategy)
+- Trunk linting config (gitleaks, shellcheck, yamllint, checkov, tflint, markdownlint)
+- Pre-commit hook with gitleaks (blocks secrets in commits)
+- OpenRouter research script (`scripts/gemini-research-openrouter.sh`)
+- 14 Architecture Decision Records (ADRs 002-014)
+- Security policies (20+ policy documents)
+- Compliance docs (hardening control mapping, security incident reports)
+- Ansible hardening design doc with CrowdSec + dev-sec integration
+- `.trunk/trunk.yaml` for IDE linting
+- OpenTofu `.gitignore` (state files, tfvars, plans)
+- Secrets-vault Cloudflare Worker converted to MCP server
 
-### Infrastructure Cost
-- VPS added: cpx31 Hillsboro ~$18/mo
-- Current spend: ~$64/mo (CP + worker + VPS)
+### Changed
 
-## [0.1.0] - 2026-03-17
+- OpenTofu: removed Hetzner firewalls (Cloudflare + CrowdSec handle security)
+- OpenTofu: VPS image changed from `debian-12` to `alma-9`
+- OpenTofu: server types corrected to `cpx31`
+- OpenTofu: test server type `cx22` → `cpx11` (cx22 removed from Hetzner)
+- All research prompts: fixed stale IPs (138.201.131.157 → 5.78.145.30)
+- All research prompts: fixed Traefik CRD API version (containo.us → traefik.io)
+- All research prompts: fixed Zitadel domain (.com → .net for internal)
+- All research prompts: removed cert-manager/Let's Encrypt refs (Cloudflare Origin CA)
+- All research outputs: 326 security fixes applied across 26 files
+- Hetzner API token rotated (old one was in plaintext tfvars)
 
-### Phase 0: Server Hardening
+### Removed
 
-#### Added
-- SSH hardening on both nodes (port 2222, key-only auth, fail2ban)
-- Firewall hardening via firewalld (default-deny, custom k8s-hardened zone)
-- Hetzner Cloud Firewall on CP node (port 2222, 6443, 80, 443)
-- Kernel tuning on worker node (sysctl, file descriptors, kubelet reservation)
-- DNS fix for IPv4 nameservers on both nodes
-- CIS Level 1 benchmarks passed on both nodes
-- Automatic security updates (dnf-automatic) on both nodes
-- Audit logging (auditd) with 25+ watch rules on both nodes
-- SSH legal warning banner on both nodes
+- `docker-compose/` directory (Authentik, NetBird, nginx, homepage, etc.)
+- Hetzner firewall modules (replaced by Cloudflare edge + CrowdSec host IDS)
+- Stale cloud-init files (`vps-init.yaml`, `vps-init-v2.yaml`)
+- Stale Cloudflare zero-trust setup scripts (exposed service token IDs)
+- Old `terraform/` directory (replaced by `opentofu/`)
+- Trivy MCP server (npm package compromised — v0.69.4 malicious)
+- Cilium CNI research (dropped — Flannel sufficient for current scale)
 
-#### Changed
-- Renamed heart → helix-stax-cp
-- Renamed helix-worker-1 → helix-stax-worker-1
-- SSH port 22 → 2222 on both nodes
+### Security
 
-#### Removed
-- K3s cluster (full wipe for clean rebuild)
-- Load balancer: helix-k8s-api-lb (ID: 5886481) — $6/mo saved
-- Load balancer: helix-ingress-lb (ID: 5889680) — $6/mo saved
-- Plaintext credentials from memory files (3 passwords scrubbed)
-- All K3s residual directories (/var/lib/rancher/, /etc/rancher/, /var/lib/cni/)
+- Rotated Hetzner Cloud API token (was in plaintext `terraform.tfvars`)
+- Removed hardcoded admin IP from OpenTofu variable defaults
+- SSH hardening uses sshd_config.d drop-in (not fragile sed)
+- VXLAN port 8472 restricted to cluster node IPs only
+- Added ssh_key_ids validation (prevents empty-list lockout)
+- SELinux enforcing verification in cloud-init
+- Pre-commit gitleaks hook installed
+- Trivy MCP removed after second npm supply chain compromise
 
-#### Fixed
-- SSH lockout during initial hardening attempt (Hetzner Cloud Firewall missing port 2222)
-- Resolved via rescue mode — documented in 02-ssh-hardening.md execution log
+## [0.1.0] - 2026-03-06
 
-#### Discovered
-- Worker node has SATA SSDs (not NVMe) — I/O scheduler left as mq-deadline
-- Worker already had 8GB swap partition — skipped swap file creation
-- SELinux in Permissive mode on CP — semanage still required for port labeling
-- firewalld not installed by default on Hetzner AlmaLinux — installed manually
+### Added
 
-### Infrastructure Cost
-- Monthly savings: $12/mo (deleted 2 load balancers)
-- Current spend: ~$46/mo (2 nodes, no VPS yet)
+- Initial infrastructure repo structure
+- OpenTofu modules for Hetzner server + firewall
+- Basic Helm chart values
+- K3s deployment docs
+- Identity/Edge Infrastructure sprint (48 files)
