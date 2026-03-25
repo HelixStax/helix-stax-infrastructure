@@ -2,6 +2,14 @@
 # Chart: zitadel/zitadel v9.27.1 (appVersion v4.12.1)
 # Deploy via: Devtron Chart Store → identity environment
 # Prereqs: CNPG helix-pg running (superuser enabled), secrets in identity namespace
+#
+# NOTE: h2c scheme is intentionally NOT set on the IngressRoute or service.
+# Zitadel serves both gRPC and HTTP/1.1 on port 8080 (TLS disabled).
+# Cloudflare tunnel sends HTTP/1.1 to Traefik. If Traefik uses h2c to
+# the backend, Cloudflare cannot parse the response and returns gRPC errors.
+# HTTP/1.1 passthrough works for the console UI and gRPC-Web (grpc-web+proto).
+# Native gRPC (h2c) is NOT supported through Cloudflare tunnel — use kubectl
+# port-forward or a direct client for server-to-server gRPC calls.
 
 zitadel:
   masterkeySecretName: zitadel-masterkey
@@ -46,9 +54,17 @@ env:
 
 replicaCount: 1
 
-# Disable v2 Login UI — use built-in login for initial deployment
+# Enable v2 Login UI — required in Zitadel v4. The OIDC authorize endpoint
+# redirects to /ui/v2/login/login which is served by the separate login
+# deployment (ghcr.io/zitadel/zitadel-login). Without this pod, browsers
+# get gRPC {"code":5,"message":"Not Found"} on every login attempt.
+# curl works because it hits /ui/console/ directly (the SPA shell) without
+# triggering the OIDC flow. Only browsers run the JS that redirects to login.
 login:
-  enabled: false
+  enabled: true
+  replicaCount: 1
+  pdb:
+    enabled: false
 
 # Using Traefik IngressRoute CRD via extraManifests — not standard K8s Ingress
 ingress:
@@ -82,8 +98,18 @@ serviceAccount:
 service:
   type: ClusterIP
   port: 8080
+  # No h2c annotation — Traefik must use HTTP/1.1 to backend.
+  # Cloudflare tunnel is HTTP/1.1 only; h2c forces HTTP/2 cleartext which
+  # Cloudflare cannot forward, producing gRPC {"code":5} errors.
+  annotations: {}
 
-# Traefik IngressRoute deployed with the Helm release
+# Traefik IngressRoute deployed with the Helm release.
+# ROUTING:
+#   /ui/v2/login -> zitadel-login:3000  (Next.js login UI, added in v4)
+#   everything else -> zitadel:8080     (main Zitadel service, HTTP/1.1)
+#
+# Priority is set so the more-specific login path rule wins.
+# No h2c scheme — Cloudflare tunnel is HTTP/1.1 only.
 extraManifests:
   - apiVersion: traefik.io/v1alpha1
     kind: IngressRoute
@@ -93,9 +119,15 @@ extraManifests:
       entryPoints:
         - web
       routes:
+        - match: "Host(`zitadel.helixstax.net`) && PathPrefix(`/ui/v2/login`)"
+          kind: Rule
+          priority: 10
+          services:
+            - name: zitadel-login
+              port: 3000
         - match: "Host(`zitadel.helixstax.net`)"
           kind: Rule
+          priority: 1
           services:
             - name: zitadel
               port: 8080
-              scheme: h2c
