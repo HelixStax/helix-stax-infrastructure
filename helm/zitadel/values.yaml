@@ -1,7 +1,7 @@
 # Zitadel values for Helix Stax
-# Chart: zitadel/zitadel v9.27.0 (appVersion v4.12.1)
+# Chart: zitadel/zitadel v9.27.1 (appVersion v4.12.1)
 # Deploy via: Devtron Chart Store → identity environment
-# Prereqs: CNPG helix-pg running, secrets in identity namespace
+# Prereqs: CNPG helix-pg running (superuser enabled), secrets in identity namespace
 
 zitadel:
   masterkeySecretName: zitadel-masterkey
@@ -24,18 +24,25 @@ zitadel:
           SSL:
             Mode: disable
         Admin:
-          Username: zitadel_admin
+          Username: postgres
           SSL:
             Mode: disable
 
-  # DB credentials injected from existing K8s secrets (chart-native pattern)
-  secretVars:
-    ZITADEL_DATABASE_POSTGRES_USER_PASSWORD:
-      name: zitadel-db-secret
-      key: user-password
-    ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD:
-      name: zitadel-db-secret
-      key: admin-password
+# DB credentials — top-level env is the v9 chart-native pattern
+# zitadel-db-secret must exist in identity namespace
+# admin-password = CNPG postgres superuser password
+# user-password = Zitadel app user password (created by init job)
+env:
+  - name: ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: zitadel-db-secret
+        key: admin-password
+  - name: ZITADEL_DATABASE_POSTGRES_USER_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: zitadel-db-secret
+        key: user-password
 
 replicaCount: 1
 
