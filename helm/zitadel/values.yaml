@@ -1,11 +1,11 @@
 # Zitadel values for Helix Stax
 # Chart: zitadel/zitadel
 # Repo: https://charts.zitadel.com
-# Install: helm install zitadel zitadel/zitadel -n identity --create-namespace -f values.yaml
+# Install: helm install zitadel zitadel/zitadel -n production --create-namespace -f values.yaml
 
 zitadel:
   # Zitadel master key — must be set via external secret before install
-  # kubectl create secret generic zitadel-masterkey -n identity \
+  # kubectl create secret generic zitadel-masterkey -n production \
   #   --from-literal=masterkey="$(openssl rand -base64 32)"
   masterkeySecretName: zitadel-masterkey
 
@@ -43,7 +43,7 @@ zitadel:
 
   secretVars:
     # Create this secret before install:
-    # kubectl create secret generic zitadel-db-secret -n identity \
+    # kubectl create secret generic zitadel-db-secret -n production \
     #   --from-literal=user-password="<password>" \
     #   --from-literal=admin-password="<password>"
     ZITADEL_DATABASE_POSTGRES_USER_PASSWORD:
@@ -59,7 +59,7 @@ image:
   pullPolicy: IfNotPresent
 
 nodeSelector:
-  workload: general
+  workload: platform
 
 resources:
   requests:

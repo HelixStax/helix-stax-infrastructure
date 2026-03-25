@@ -10,7 +10,7 @@ auth:
 
 primary:
   nodeSelector:
-    workload: database
+    workload: platform
   resources:
     requests:
       cpu: 100m

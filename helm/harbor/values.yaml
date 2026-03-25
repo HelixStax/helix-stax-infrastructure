@@ -70,7 +70,7 @@ persistence:
 
 portal:
   nodeSelector:
-    workload: general
+    workload: forge
   resources:
     requests:
       cpu: 50m
@@ -81,7 +81,7 @@ portal:
 
 core:
   nodeSelector:
-    workload: general
+    workload: forge
   resources:
     requests:
       cpu: 100m
@@ -92,7 +92,7 @@ core:
 
 jobservice:
   nodeSelector:
-    workload: general
+    workload: forge
   resources:
     requests:
       cpu: 50m
@@ -103,7 +103,7 @@ jobservice:
 
 registry:
   nodeSelector:
-    workload: general
+    workload: forge
   registry:
     resources:
       requests:
@@ -124,7 +124,7 @@ registry:
 trivy:
   enabled: true
   nodeSelector:
-    workload: general
+    workload: forge
   resources:
     requests:
       cpu: 100m

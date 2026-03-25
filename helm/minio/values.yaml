@@ -16,7 +16,7 @@ existingSecret: minio-credentials
 replicas: 1
 
 nodeSelector:
-  workload: general
+  workload: forge
 
 resources:
   requests:

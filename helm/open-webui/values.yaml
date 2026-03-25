@@ -42,7 +42,7 @@ ingress:
 #   Client ID / Secret from Zitadel application config
 
 nodeSelector:
-  workload: ai
+  workload: forge
 
 # Pipelines — disabled until needed
 pipelines:

@@ -56,4 +56,4 @@ readinessProbe:
   failureThreshold: 3
 
 nodeSelector:
-  workload: ai
+  workload: forge
