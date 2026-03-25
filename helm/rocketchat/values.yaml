@@ -1,0 +1,63 @@
+# Rocket.Chat values for Helix Stax
+# Chart: rocketchat/rocketchat
+# Repo: https://rocketchat.github.io/helm-charts
+# Install: helm install rocketchat rocketchat/rocketchat -n comms --create-namespace -f values.yaml
+
+replicaCount: 1
+
+image:
+  pullPolicy: IfNotPresent
+
+# Rocket.Chat application settings
+host: rocketchat.helixstax.net
+
+smtp:
+  enabled: false  # Configure via Rocket.Chat admin UI after deploy
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 5Gi
+
+# Bundled MongoDB — kept simple for single-node cluster
+mongodb:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    # Set via external secret before install:
+    # kubectl create secret generic rocketchat-mongodb-secret -n comms \
+    #   --from-literal=mongodb-passwords="<password>" \
+    #   --from-literal=mongodb-root-password="<root-password>"
+    existingSecret: rocketchat-mongodb-secret
+  persistence:
+    enabled: true
+    storageClass: local-path
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+
+ingress:
+  enabled: false  # Using Traefik IngressRoute CRD — see docs/runbooks/
+
+serviceAccount:
+  create: true
+
+podSecurityContext:
+  fsGroup: 65533
+
+# Zitadel OIDC — configure via Rocket.Chat admin UI after Zitadel is deployed
+# Admin > OAuth > Add custom oauth > provider: Zitadel

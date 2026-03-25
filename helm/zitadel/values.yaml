@@ -1,0 +1,94 @@
+# Zitadel values for Helix Stax
+# Chart: zitadel/zitadel
+# Repo: https://charts.zitadel.com
+# Install: helm install zitadel zitadel/zitadel -n identity --create-namespace -f values.yaml
+
+zitadel:
+  # Zitadel master key — must be set via external secret before install
+  # kubectl create secret generic zitadel-masterkey -n identity \
+  #   --from-literal=masterkey="$(openssl rand -base64 32)"
+  masterkeySecretName: zitadel-masterkey
+
+  configmapConfig:
+    ExternalDomain: zitadel.helixstax.net
+    ExternalPort: 443
+    ExternalSecure: true
+    TLS:
+      Enabled: false  # TLS terminated at Traefik/Cloudflare
+
+    Database:
+      Postgres:
+        Host: helix-pg-rw.database.svc.cluster.local
+        Port: 5432
+        Database: zitadel
+        MaxOpenConns: 20
+        MaxIdleConns: 10
+        User:
+          SSL:
+            Mode: disable
+        Admin:
+          SSL:
+            Mode: disable
+
+  # DB credentials injected via secretVars
+  dbSslCaCrtSecret: ""
+
+  secretConfig:
+    Database:
+      Postgres:
+        User:
+          Password: ""  # Set via secretVars from zitadel-db-secret
+        Admin:
+          Password: ""  # Set via secretVars from zitadel-db-secret
+
+  secretVars:
+    # Create this secret before install:
+    # kubectl create secret generic zitadel-db-secret -n identity \
+    #   --from-literal=user-password="<password>" \
+    #   --from-literal=admin-password="<password>"
+    ZITADEL_DATABASE_POSTGRES_USER_PASSWORD:
+      name: zitadel-db-secret
+      key: user-password
+    ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD:
+      name: zitadel-db-secret
+      key: admin-password
+
+replicaCount: 1
+
+image:
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Zitadel stores signing keys in the database; this PVC is for file-based key backup
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 1Gi
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false  # Using Traefik IngressRoute CRD — see docs/runbooks/
+
+# Init job creates the first admin user and sets up the instance
+initJob:
+  enabled: true
+
+pdb:
+  enabled: false  # Single-node cluster
+
+serviceAccount:
+  create: true
+  name: zitadel
+
+# Zitadel runs its own DB init — do not deploy bundled postgres
+# CloudNativePG helix-pg cluster is the database backend

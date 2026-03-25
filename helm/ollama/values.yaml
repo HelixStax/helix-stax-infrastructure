@@ -1,0 +1,58 @@
+# Ollama values for Helix Stax
+# Chart: ollama-helm/ollama
+# Repo: https://otwld.github.io/ollama-helm/
+# Install: helm install ollama ollama-helm/ollama -n ai --create-namespace -f values.yaml
+
+replicaCount: 1
+
+image:
+  pullPolicy: IfNotPresent
+
+# CPU-only — no GPU on current cluster nodes
+ollama:
+  gpu:
+    enabled: false
+  models:
+    # Pre-pull models on first deploy — comment out to skip
+    # Models are stored in the persistent volume
+    pull:
+      - llama3.2:3b     # Small general-purpose model (~2GB)
+      - nomic-embed-text  # Embedding model for pgvector (~274MB)
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+
+# Model storage — 20Gi for a few small models
+persistentVolume:
+  enabled: true
+  storageClass: local-path
+  size: 20Gi
+
+service:
+  type: ClusterIP
+  port: 11434
+
+ingress:
+  enabled: false  # Internal service only — accessed by Open WebUI via ClusterIP
+
+# Ollama is a CPU-heavy workload; tolerate slow startup on model load
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# No affinity rules — single-node cluster

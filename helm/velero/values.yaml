@@ -1,0 +1,87 @@
+# Velero values for Helix Stax
+# Chart: vmware-tanzu/velero
+# Repo: https://vmware-tanzu.github.io/helm-charts
+# Install: helm install velero vmware-tanzu/velero -n velero --create-namespace -f values.yaml
+
+image:
+  pullPolicy: IfNotPresent
+
+# AWS plugin for S3-compatible storage (MinIO initially, Backblaze B2 later)
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.10.0
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+# Credentials for MinIO S3-compatible backend
+# Create before install:
+# kubectl create secret generic velero-s3-credentials -n velero \
+#   --from-literal=cloud="[default]\naws_access_key_id=<minio-user>\naws_secret_access_key=<minio-password>"
+credentials:
+  useSecret: true
+  existingSecret: velero-s3-credentials
+
+configuration:
+  # Primary backup location: in-cluster MinIO
+  backupStorageLocation:
+    - name: default
+      provider: aws
+      bucket: velero
+      default: true
+      config:
+        region: us-east-1         # MinIO ignores region but requires a value
+        s3ForcePathStyle: "true"   # Required for MinIO S3-compatible API
+        s3Url: http://minio.storage.svc.cluster.local:9000
+
+  # Volume snapshot location — filesystem backup via kopia (no CSI snapshots on k3s/local-path)
+  volumeSnapshotLocation:
+    - name: default
+      provider: aws
+      config:
+        region: us-east-1
+
+  # Use file-system backup for local-path PVCs (no CSI snapshot support)
+  defaultVolumesToFsBackup: true
+
+# Schedule: nightly backup of all namespaces at 02:00 UTC
+schedules:
+  nightly-full:
+    disabled: false
+    schedule: "0 2 * * *"
+    template:
+      ttl: 168h  # Retain 7 days
+      includedNamespaces:
+        - "*"
+      excludedNamespaces:
+        - kube-system
+        - kube-public
+        - kube-node-lease
+      storageLocation: default
+      volumeSnapshotLocations:
+        - default
+
+deployNodeAgent: true
+
+nodeAgent:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# Metrics
+metrics:
+  enabled: false  # Enable when Prometheus scraping is configured
+  serviceMonitor:
+    enabled: false

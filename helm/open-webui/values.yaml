@@ -1,0 +1,46 @@
+# Open WebUI values for Helix Stax
+# Chart: open-webui/open-webui
+# Repo: https://helm.openwebui.com
+# Install: helm install open-webui open-webui/open-webui -n ai -f values.yaml
+
+replicaCount: 1
+
+image:
+  pullPolicy: IfNotPresent
+
+# Connect to in-cluster Ollama — no bundled Ollama
+ollama:
+  enabled: false
+
+ollamaUrls:
+  - http://ollama.ai.svc.cluster.local:11434
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 250m
+    memory: 512Mi
+
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 2Gi
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false  # Using Traefik IngressRoute CRD — see docs/runbooks/
+
+# Open WebUI authentication
+# Default admin account created on first login
+# Configure Zitadel OIDC via admin panel after deploy:
+#   Admin > Settings > Auth > OpenID Connect
+#   Client ID / Secret from Zitadel application config
+
+# Pipelines — disabled until needed
+pipelines:
+  enabled: false

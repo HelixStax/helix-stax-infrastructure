@@ -1,0 +1,133 @@
+# Harbor values for Helix Stax
+# Chart: harbor/harbor
+# Repo: https://helm.goharbor.io
+# Install: helm install harbor harbor/harbor -n registry --create-namespace -f values.yaml
+
+externalURL: https://harbor.helixstax.net
+
+# Set admin password via secret before install:
+# kubectl create secret generic harbor-admin-secret -n registry \
+#   --from-literal=HARBOR_ADMIN_PASSWORD="$(openssl rand -base64 24)"
+existingSecretAdminPassword: harbor-admin-secret
+existingSecretAdminPasswordKey: HARBOR_ADMIN_PASSWORD
+
+expose:
+  type: clusterIP
+  tls:
+    enabled: false  # TLS terminated at Traefik/Cloudflare
+  clusterIP:
+    name: harbor
+    ports:
+      httpPort: 80
+
+ingress:
+  enabled: false  # Using Traefik IngressRoute CRD — see docs/runbooks/
+
+# Internal database (PostgreSQL bundled) — sufficient for single-node
+database:
+  type: internal
+  internal:
+    password: ""  # Set via existingSecretForDB or auto-generated
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+    persistence:
+      size: 5Gi
+      storageClass: local-path
+
+# Internal Redis (Valkey would be preferred but Harbor bundles Redis)
+redis:
+  type: internal
+  internal:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+persistence:
+  enabled: true
+  resourcePolicy: keep
+  persistentVolumeClaim:
+    registry:
+      storageClass: local-path
+      size: 10Gi
+    chartmuseum:
+      storageClass: local-path
+      size: 1Gi
+    jobservice:
+      storageClass: local-path
+      size: 1Gi
+    trivy:
+      storageClass: local-path
+      size: 2Gi
+
+portal:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+core:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+jobservice:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+registry:
+  registry:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+  controller:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+trivy:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+chartmuseum:
+  enabled: false  # Not needed — using OCI push directly
+
+notary:
+  enabled: false  # Deprecated upstream
+
+metrics:
+  enabled: false  # Enable when Prometheus scraping is configured

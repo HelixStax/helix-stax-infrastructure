@@ -1,0 +1,56 @@
+# MinIO values for Helix Stax
+# Chart: minio/minio
+# Repo: https://charts.min.io/
+# Install: helm install minio minio/minio -n storage --create-namespace -f values.yaml
+
+# Standalone mode — single node, no erasure coding
+mode: standalone
+
+# Default credentials — override immediately via Zitadel OIDC or rotate post-deploy
+# Set via secret before install:
+# kubectl create secret generic minio-credentials -n storage \
+#   --from-literal=rootUser="admin" \
+#   --from-literal=rootPassword="$(openssl rand -base64 24)"
+existingSecret: minio-credentials
+
+replicas: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 250m
+    memory: 512Mi
+
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 20Gi
+
+service:
+  type: ClusterIP
+  port: 9000
+
+consoleService:
+  type: ClusterIP
+  port: 9001
+
+ingress:
+  enabled: false  # Using Traefik IngressRoute CRD — see docs/runbooks/
+
+consoleIngress:
+  enabled: false  # Using Traefik IngressRoute CRD — see docs/runbooks/
+
+# Buckets created by Velero on first backup run
+buckets: []
+
+# Prometheus metrics
+metrics:
+  serviceMonitor:
+    enabled: false  # Enable when Prometheus scraping is configured
+
+# MinIO used as:
+# - Velero backup target (bucket: velero)
+# - Loki log storage (optional — currently filesystem)
+# - Harbor registry storage (optional — currently local PVC)
