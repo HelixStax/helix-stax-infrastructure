@@ -1,0 +1,16 @@
+# ============================================================
+# valkey — Helm chart wrapper for bitnami/valkey
+# In-cluster cache (standalone mode, no auth, no replication)
+# Deployed to: production namespace
+# ============================================================
+apiVersion: v2
+name: valkey
+description: Valkey standalone cache — Linux Foundation Redis fork (BSD license)
+type: application
+version: 0.1.0
+appVersion: "8.0.2"
+
+dependencies:
+  - name: valkey
+    version: "2.x.x"
+    repository: https://charts.bitnami.com/bitnami

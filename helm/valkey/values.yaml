@@ -1,0 +1,77 @@
+# ============================================================
+# valkey — Helm values for bitnami/valkey chart
+# Single-node k3s cluster (helix-stax-cp, AlmaLinux 9.7)
+# Mode: standalone (no sentinel, no replication)
+# Auth: disabled (internal cluster use only)
+# ============================================================
+
+valkey:
+  # -- Deployment mode --
+  # standalone: single instance, no sentinel, no cluster sharding
+  architecture: standalone
+
+  # -- Authentication --
+  # Disabled — Valkey is ClusterIP-only, no external exposure
+  auth:
+    enabled: false
+
+  # -- Primary instance configuration --
+  primary:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 250m
+        memory: 512Mi
+
+    persistence:
+      enabled: true
+      storageClass: local-path
+      size: 1Gi
+      # RWO is correct for single-instance standalone
+      accessModes:
+        - ReadWriteOnce
+
+    # -- Liveness/readiness probes --
+    livenessProbe:
+      enabled: true
+      initialDelaySeconds: 20
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+      successThreshold: 1
+
+    readinessProbe:
+      enabled: true
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+      successThreshold: 1
+
+    # -- Pod security context --
+    # Bitnami images run as non-root by default (uid 1001)
+    podSecurityContext:
+      enabled: true
+      fsGroup: 1001
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 1001
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false
+
+  # -- Metrics sidecar --
+  # Disabled — Prometheus metrics not required at this phase
+  metrics:
+    enabled: false
+
+  # -- Replica (disabled in standalone mode) --
+  replica:
+    replicaCount: 0
+
+  # -- Service account --
+  serviceAccount:
+    create: true
+    name: valkey
