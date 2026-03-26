@@ -28,12 +28,19 @@
 #
 # Applied dashboards (as of 2026-03-26):
 #   ConfigMap-provisioned (survive pod restarts):
-#   - helix-stax-node-exporter-full     (ID: 1860)  -> Infrastructure
-#   - helix-stax-traefik-dashboard      (ID: 17346) -> Networking
+#   - helix-stax-node-exporter-full      (ID: 1860)  -> Infrastructure
+#   - helix-stax-traefik-dashboard       (ID: 17346) -> Networking
 #   - helix-stax-cloudnativepg-dashboard (ID: 20417) -> Database
-#   - helix-stax-postgresql-dashboard   (ID: 9628)  -> Database
-#   - helix-stax-argocd-dashboard       (ID: 14584) -> CI-CD
-#   - helix-stax-argocd-app-overview    (ID: 19974) -> CI-CD
+#   - helix-stax-argocd-dashboard        (ID: 14584) -> CI-CD
+#   - helix-stax-argocd-app-overview     (ID: 19974) -> CI-CD
+#
+#   REMOVED dashboards (DO NOT RE-ADD via bootstrap script):
+#   - helix-stax-postgresql-dashboard   (ID: 9628, uid: 000000039)
+#     Reason: Redundant — CloudNativePG dashboard (20417) covers PostgreSQL monitoring.
+#             Dashboard was RED (conflicting/broken panels). CNPG dashboard is the correct one.
+#   - monitoring-kube-prometheus-nodes-aix    (kube-prometheus-stack built-in)
+#   - monitoring-kube-prometheus-nodes-darwin (kube-prometheus-stack built-in)
+#     Reason: Not applicable — cluster runs AlmaLinux 9.7 on x86_64, no AIX or macOS nodes.
 #
 #   API-imported (ephemeral — wiped on pod restart, re-import if needed):
 #   - Kubernetes / Views / Pods         (ID: 15760) -> Infrastructure

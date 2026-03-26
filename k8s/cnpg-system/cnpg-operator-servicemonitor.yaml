@@ -1,0 +1,38 @@
+---
+# CNPG operator exposes Prometheus metrics on port 8080 but has no Service for it.
+# This Service + ServiceMonitor pair enables Prometheus scraping of the operator.
+apiVersion: v1
+kind: Service
+metadata:
+  name: cnpg-operator-metrics
+  namespace: cnpg-system
+  labels:
+    app.kubernetes.io/name: cloudnative-pg
+    app.kubernetes.io/instance: cnpg-operator
+    release: monitoring
+spec:
+  selector:
+    app.kubernetes.io/name: cloudnative-pg
+    app.kubernetes.io/instance: cnpg-operator
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cnpg-operator
+  namespace: cnpg-system
+  labels:
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cloudnative-pg
+      app.kubernetes.io/instance: cnpg-operator
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
