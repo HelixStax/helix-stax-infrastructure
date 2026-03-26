@@ -31,3 +31,4 @@ Thumbs.db
 # Ansible — ignore embedded .git if present
 ansible/.git/
 ansible/collections/
+# Signed commits enabled
