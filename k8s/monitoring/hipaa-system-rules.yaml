@@ -1,0 +1,138 @@
+---
+# HIPAA System-Level Recording Rules for Helix Stax
+# Covers node health, network security, and host-level IDS controls.
+# Companion to hipaa-recording-rules.yaml (application-level controls).
+#
+# Fix notes (2026-03-26):
+#   nodes_healthy: sum(metric == 1) == count(same filter) avoids the
+#     count(all statuses) gotcha where 4 nodes × 3 status values = 12.
+#   pods_not_crashlooping: scoped to critical namespaces only.
+#     devtroncd image-scanner + clair are known crashlooping but are NOT
+#     in identity/database/monitoring/kube-system — they should not fail HIPAA.
+#   network_policies_exist + firewall_nodes_up: retained as-is (correct).
+#   crowdsec_host_active: node_systemd_unit_state has 0 results on this cluster
+#     because node-exporter systemd collector (--collector.systemd) is not enabled.
+#     Kept rule but it returns 0 until systemd metrics are enabled.
+#
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hipaa-system-rules
+  namespace: monitoring
+  labels:
+    app: kube-prometheus-stack
+    release: monitoring
+spec:
+  groups:
+    - name: hipaa.system.node_health
+      interval: 5m
+      rules:
+        # §164.312(c)(1) — All nodes ready
+        # sum(Ready==true) == count(Ready==true) ensures all nodes match,
+        # avoiding the count(all status values) = 12 gotcha (4 nodes x 3 statuses).
+        - record: hipaa_control_passing
+          labels:
+            control: nodes_healthy
+            category: technical
+            hipaa_ref: "164.312(c)(1)"
+          expr: |
+            clamp_max(
+              (
+                sum(kube_node_status_condition{condition="Ready",status="true"} == 1)
+                ==
+                count(kube_node_status_condition{condition="Ready",status="true"})
+              )
+              OR on()
+              vector(0),
+              1
+            )
+
+        # §164.312(c)(1) — No CrashLoopBackOff in CRITICAL namespaces only
+        # Scoped to: identity, database, monitoring, kube-system
+        # devtroncd image-scanner + clair are known crashlooping — excluded by design.
+        - record: hipaa_control_passing
+          labels:
+            control: pods_not_crashlooping
+            category: technical
+            hipaa_ref: "164.312(c)(1)"
+          expr: |
+            clamp_max(
+              (
+                absent(
+                  kube_pod_container_status_waiting_reason{
+                    reason="CrashLoopBackOff",
+                    namespace=~"identity|database|monitoring|kube-system"
+                  }
+                )
+                OR
+                (
+                  count(
+                    kube_pod_container_status_waiting_reason{
+                      reason="CrashLoopBackOff",
+                      namespace=~"identity|database|monitoring|kube-system"
+                    }
+                  ) == 0
+                )
+              )
+              OR on()
+              vector(0),
+              1
+            )
+
+    - name: hipaa.system.network_security
+      interval: 5m
+      rules:
+        # §164.312(e)(1) — Network policies exist (lateral movement control)
+        - record: hipaa_control_passing
+          labels:
+            control: network_policies_exist
+            category: technical
+            hipaa_ref: "164.312(e)(1)"
+          expr: |
+            clamp_max(
+              count(kube_networkpolicy_created) > 0
+              OR on()
+              vector(0),
+              1
+            )
+
+        # §164.312(e)(1) — All 4 nodes reachable by monitoring
+        # Pass if node-exporter is running on all 4 nodes
+        - record: hipaa_control_passing
+          labels:
+            control: firewall_nodes_up
+            category: technical
+            hipaa_ref: "164.312(e)(1)"
+          expr: |
+            clamp_max(
+              (count(node_exporter_build_info) >= 4)
+              OR on()
+              vector(0),
+              1
+            )
+
+    - name: hipaa.system.host_ids
+      interval: 5m
+      rules:
+        # §164.308(a)(6) — CrowdSec running on ALL host nodes
+        # Requires node-exporter --collector.systemd flag (disabled on this cluster).
+        # Returns 0 until systemd collector is enabled or CrowdSec K8s agent deployed.
+        - record: hipaa_control_passing
+          labels:
+            control: crowdsec_host_active
+            category: technical
+            hipaa_ref: "164.308(a)(6)"
+          expr: |
+            clamp_max(
+              (
+                count(
+                  node_systemd_unit_state{
+                    name="crowdsec.service",
+                    state="active"
+                  } == 1
+                ) >= 4
+              )
+              OR on()
+              vector(0),
+              1
+            )

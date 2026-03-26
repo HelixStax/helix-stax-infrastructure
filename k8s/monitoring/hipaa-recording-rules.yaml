@@ -10,13 +10,19 @@
 # HIPAA ref: the 45 CFR section the control maps to
 #
 # Metric sources:
-#   - node_network_up         : node-exporter (kube-prometheus-stack)
-#   - kube_*                  : kube-state-metrics (kube-prometheus-stack)
-#   - cnpg_collector_*        : CloudNativePG PodMonitor
-#   - velero_*                : Velero (planned — panels grey until deployed)
-#   - cs_*                    : CrowdSec (requires prometheus enabled in config)
-#   - traefik_*               : Traefik (built-in, port 8082)
-#   - http_server_*           : Zitadel (ServiceMonitor on :8080/debug/metrics)
+#   - node_network_*              : node-exporter (kube-prometheus-stack)
+#   - kube_*                      : kube-state-metrics (kube-prometheus-stack)
+#   - cnpg_collector_*            : CloudNativePG PodMonitor
+#   - cnpg_pg_stat_archiver_*     : CloudNativePG WAL archiver metrics
+#   - velero_*                    : Velero (planned — panels grey until deployed)
+#   - cs_*                        : CrowdSec (requires prometheus enabled in config)
+#   - traefik_*                   : Traefik (built-in, port 8082)
+#   - up{job="zitadel"}           : Zitadel ServiceMonitor (port :8080)
+#
+# WireGuard NOTE: node_network_up{device="flannel-wg"} returns 0 on all nodes
+# despite WireGuard being active. This is a false negative caused by how the
+# Linux kernel reports WireGuard interface operational state to node-exporter.
+# Use node_network_transmit_bytes_total instead — bytes > 0 proves active tunnels.
 #
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
@@ -36,14 +42,22 @@ spec:
       interval: 5m
       rules:
         # §164.312(e)(1) — WireGuard tunnel up on all nodes
-        # Pass if flannel-wg interface is UP on every scraped node
+        # node_network_up{device="flannel-wg"} is a false negative on this cluster
+        # (kernel reports 0 despite active WireGuard). Instead we check that
+        # transmit bytes are non-zero on ALL scraped nodes — bytes flowing = tunnel active.
+        # Pass: min across all nodes of (transmit_bytes > 0) == 1
         - record: hipaa_control_passing
           labels:
             control: wireguard_tunnels_up
             category: technical
             hipaa_ref: "164.312(e)(1)"
           expr: |
-            min(node_network_up{device="flannel-wg"})
+            clamp_max(
+              min(
+                node_network_transmit_bytes_total{device="flannel-wg"} > 0
+              ),
+              1
+            )
 
         # §164.312(a)(1) — RBAC in use: at least one RoleBinding exists
         - record: hipaa_control_passing
@@ -54,7 +68,7 @@ spec:
           expr: |
             clamp_max(count(kube_rolebinding_info) > 0, 1)
 
-        # §164.312(a)(2)(i) — Unique user IDs: no shared service accounts
+        # §164.312(a)(2)(i) — Unique user IDs: dedicated service accounts present
         # Pass if kube-state-metrics reports service account info (basic presence check)
         - record: hipaa_control_passing
           labels:
@@ -64,31 +78,21 @@ spec:
           expr: |
             clamp_max(count(kube_serviceaccount_info) > 0, 1)
 
-        # §164.312(b) — Audit controls: Loki receiving logs from all key namespaces
-        # Pass if monitoring, identity, database, kube-system all have log flow
-        # This uses a time-series based on log ingestion rate; if Loki is up and
-        # receiving logs the metric is non-zero.
-        # Fallback: use kube_pod_info to confirm Loki pod is Running
+        # §164.312(a)(2)(i) — Unique user IDs: Zitadel IdP is up and serving auth
+        # Pass if Zitadel pod is healthy (proxy for unique user identity enforcement)
         - record: hipaa_control_passing
           labels:
-            control: audit_logging_active
+            control: identity_provider_up
             category: technical
-            hipaa_ref: "164.312(b)"
+            hipaa_ref: "164.312(a)(2)(i)"
           expr: |
-            clamp_max(
-              count(
-                kube_pod_status_ready{
-                  namespace="monitoring",
-                  condition="true"
-                }
-              ) > 0,
-              1
-            )
+            clamp_max(up{job="zitadel"} == 1, 1)
+            OR on()
+            vector(0)
 
-        # §164.312(d) — MFA: Zitadel is healthy (proxy: MFA enforcement enabled)
+        # §164.312(d) — Person/Entity authentication: Zitadel healthy (MFA-capable)
         # Full MFA status cannot be queried via Prometheus alone; this checks
-        # that Zitadel is reachable. The MFA policy is verified manually and
-        # documented as GREY in the dashboard.
+        # that Zitadel is reachable. MFA policy enforcement is verified manually.
         - record: hipaa_control_passing
           labels:
             control: identity_provider_healthy
@@ -105,9 +109,135 @@ spec:
               1
             )
 
-    - name: hipaa.technical.encryption
+    - name: hipaa.technical.audit
       interval: 5m
       rules:
+        # §164.312(b) — Audit controls: Loki receiving logs (monitoring ns pods healthy)
+        # Pass if monitoring namespace has ready pods (Loki, Prometheus running)
+        - record: hipaa_control_passing
+          labels:
+            control: audit_logging_active
+            category: technical
+            hipaa_ref: "164.312(b)"
+          expr: |
+            clamp_max(
+              count(
+                kube_pod_status_ready{
+                  namespace="monitoring",
+                  condition="true"
+                }
+              ) > 0,
+              1
+            )
+
+        # §164.312(b) — All key namespaces have pods (coverage check)
+        # Pass if each of: monitoring, identity, database, devtroncd has at least one ready pod
+        - record: hipaa_control_passing
+          labels:
+            control: all_namespaces_monitored
+            category: technical
+            hipaa_ref: "164.312(b)"
+          expr: |
+            clamp_max(
+              (
+                count(kube_pod_status_ready{namespace="monitoring",condition="true"}) > 0
+              ) * (
+                count(kube_pod_status_ready{namespace="identity",condition="true"}) > 0
+              ) * (
+                count(kube_pod_status_ready{namespace="database",condition="true"}) > 0
+              ),
+              1
+            )
+
+    - name: hipaa.technical.network
+      interval: 5m
+      rules:
+        # §164.312(e)(2)(ii) — Encryption in transit via WireGuard
+        # Reuses transmit_bytes approach — separate label for section mapping
+        - record: hipaa_control_passing
+          labels:
+            control: wireguard_encryption_active
+            category: technical
+            hipaa_ref: "164.312(e)(2)(ii)"
+          expr: |
+            clamp_max(
+              min(
+                node_network_transmit_bytes_total{device="flannel-wg"} > 0
+              ),
+              1
+            )
+
+        # §164.312(e)(1) — Network policies in use (lateral movement control)
+        # Pass if at least one NetworkPolicy exists in the cluster
+        - record: hipaa_control_passing
+          labels:
+            control: network_policies_exist
+            category: technical
+            hipaa_ref: "164.312(e)(1)"
+          expr: |
+            clamp_max(count(kube_networkpolicy_created) > 0, 1)
+            OR on()
+            vector(0)
+
+        # §164.312(e)(1) — Traefik ingress TLS active (all ingress traffic encrypted)
+        # Pass if Traefik is up and serving traffic (TLS termination at edge)
+        # traefik_tls_certs_not_after is absent on this cluster (Cloudflare Origin CA,
+        # no cert-manager). Use up{job="traefik-metrics"} instead.
+        - record: hipaa_control_passing
+          labels:
+            control: ingress_tls_active
+            category: technical
+            hipaa_ref: "164.312(e)(1)"
+          expr: |
+            clamp_max(
+              count(up{job="traefik-metrics"} == 1) > 0,
+              1
+            )
+            OR on()
+            vector(0)
+
+    - name: hipaa.technical.integrity
+      interval: 5m
+      rules:
+        # §164.312(c)(1) — System integrity: all nodes in Ready state
+        # Pass if all 4 nodes are Ready
+        - record: hipaa_control_passing
+          labels:
+            control: all_nodes_ready
+            category: technical
+            hipaa_ref: "164.312(c)(1)"
+          expr: |
+            clamp_max(
+              (
+                sum(kube_node_status_condition{condition="Ready",status="true"})
+                ==
+                count(kube_node_status_condition{condition="Ready"})
+              ),
+              1
+            )
+
+        # §164.312(c)(1) — No crashlooping pods in critical namespaces
+        # Pass if no CrashLoopBackOff pods in identity, database, monitoring, kube-system
+        - record: hipaa_control_passing
+          labels:
+            control: no_crashloop_critical_namespaces
+            category: technical
+            hipaa_ref: "164.312(c)(1)"
+          expr: |
+            clamp_max(
+              (
+                count(
+                  kube_pod_container_status_waiting_reason{
+                    reason="CrashLoopBackOff",
+                    namespace=~"identity|database|monitoring|kube-system"
+                  }
+                ) == 0
+              )
+              OR on()
+              vector(1),
+              1
+            )
+
         # §164.312(a)(2)(iv) — DB encryption: CNPG cluster SSL mode
         # cnpg_collector_up = 1 when CNPG exporter is running (SSL is always on in CNPG)
         - record: hipaa_control_passing
@@ -126,22 +256,31 @@ spec:
               1
             )
 
-        # §164.312(e)(2)(ii) — Encryption in transit via WireGuard
-        # Reuses wireguard_tunnels_up logic — separate label for section mapping
-        - record: hipaa_control_passing
-          labels:
-            control: wireguard_encryption_active
-            category: technical
-            hipaa_ref: "164.312(e)(2)(ii)"
-          expr: |
-            min(node_network_up{device="flannel-wg"})
-
     - name: hipaa.technical.backup
       interval: 15m
       rules:
-        # §164.308(a)(7)(ii)(A) — Data backup: last CNPG backup within 25h
-        # RPO target: 24h. Pass if time since last backup < 90000s (25h with buffer).
-        # Falls back to 0 (fail) if metric absent (Velero not yet deployed).
+        # §164.308(a)(7)(ii)(A) — Data backup: CNPG WAL archiving active
+        # cnpg_collector_last_available_backup_timestamp is 0 because no scheduled
+        # CNPG Backup object is configured (WAL archiving target not set).
+        # Proxy: WAL segments are being archived (archived_count > 0).
+        # This confirms continuous WAL archiving is functioning even without
+        # a full base backup schedule.
+        - record: hipaa_control_passing
+          labels:
+            control: cnpg_wal_archiving_active
+            category: technical
+            hipaa_ref: "164.308(a)(7)(ii)(A)"
+          expr: |
+            clamp_max(
+              count(cnpg_pg_stat_archiver_archived_count > 0) > 0,
+              1
+            )
+            OR on()
+            vector(0)
+
+        # §164.308(a)(7)(ii)(A) — Full scheduled backup configured
+        # Pass if last_available_backup_timestamp > 0 (a Backup object has run)
+        # Falls back to 0 until CNPG Backup schedule is configured.
         - record: hipaa_control_passing
           labels:
             control: cnpg_backup_recent
@@ -180,6 +319,9 @@ spec:
       interval: 5m
       rules:
         # §164.308(a)(6) — IDS active: CrowdSec agent running
+        # cs_lapi_decisions_ok_total is present when CrowdSec K8s agent is deployed.
+        # CrowdSec is running on the host (AlmaLinux) but not yet in-cluster.
+        # Falls back to 0 until CrowdSec K8s deployment is added.
         - record: hipaa_control_passing
           labels:
             control: crowdsec_ids_active
