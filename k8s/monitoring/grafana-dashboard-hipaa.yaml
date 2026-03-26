@@ -1,0 +1,1571 @@
+---
+# HIPAA Security Rule Compliance Dashboard — Helix Stax
+#
+# Grafana dashboard provisioned via ConfigMap using kube-prometheus-stack
+# k8s-sidecar. Label grafana_dashboard=1 causes automatic pickup.
+# Annotation grafana_folder=Compliance routes to the Compliance folder.
+#
+# Dashboard structure (6 rows):
+#   Row 1: Executive Compliance Summary
+#   Row 2: Technical Safeguards §164.312 — Access Control & Encryption
+#   Row 3: Administrative Safeguards §164.308 — Security Incidents & Backup
+#   Row 4: Physical Safeguards §164.310 — Delegated to Hetzner
+#   Row 5: Backup & Recovery §164.308(a)(7)
+#   Row 6: HIPAA NPRM 2024 Readiness
+#
+# Metrics dependencies:
+#   - kube-prometheus-stack (kube-state-metrics, node-exporter, Prometheus) — deployed
+#   - Loki — deployed
+#   - Zitadel ServiceMonitor — needed for http_server_* metrics
+#   - CrowdSec with prometheus enabled — needed for cs_* metrics
+#   - CloudNativePG PodMonitor — needed for cnpg_collector_* metrics
+#   - Velero (planned) — backup panels show N/A until deployed
+#   - hipaa-recording-rules.yaml — must be applied first for score panels
+#
+# Applying:
+#   kubectl apply -f k8s/monitoring/hipaa-recording-rules.yaml
+#   kubectl apply -f k8s/monitoring/grafana-dashboard-hipaa.yaml
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-hipaa
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: "Compliance"
+data:
+  hipaa-dashboard.json: |
+    {
+      "__inputs": [],
+      "__requires": [
+        {
+          "type": "grafana",
+          "id": "grafana",
+          "name": "Grafana",
+          "version": "10.0.0"
+        },
+        {
+          "type": "datasource",
+          "id": "prometheus",
+          "name": "Prometheus",
+          "version": "1.0.0"
+        },
+        {
+          "type": "datasource",
+          "id": "loki",
+          "name": "Loki",
+          "version": "1.0.0"
+        }
+      ],
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "description": "HIPAA Security Rule (45 CFR 164) compliance posture — maps Technical, Administrative, and Physical safeguards to live metrics. Intended for compliance officers and auditors. Last updated: 2026-03-25.",
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 1,
+          "title": "Row 1: Executive Compliance Summary",
+          "type": "row"
+        },
+
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 60 },
+                  { "color": "green", "value": 80 }
+                ]
+              },
+              "unit": "percent",
+              "min": 0,
+              "max": 100
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+          "id": 2,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "title": "HIPAA Technical Score",
+          "description": "Percentage of automated Technical Safeguard controls currently passing. Based on hipaa_control_passing recording rules.",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "expr": "hipaa_technical_score",
+              "legendFormat": "Technical Score",
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [
+                { "options": { "0": { "color": "red", "index": 0, "text": "FAIL" }, "1": { "color": "green", "index": 1, "text": "PASS" } }, "type": "value" }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 3, "x": 4, "y": 1 },
+          "id": 3,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "auto"
+          },
+          "title": "§164.312(e)(1) Transmission Security",
+          "description": "WireGuard flannel-wg tunnel up on all nodes.",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "expr": "hipaa_control_passing{control=\"wireguard_tunnels_up\"}",
+              "legendFormat": "WireGuard",
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [
+                { "options": { "0": { "color": "red", "index": 0, "text": "FAIL" }, "1": { "color": "green", "index": 1, "text": "PASS" } }, "type": "value" }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 3, "x": 7, "y": 1 },
+          "id": 4,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "auto"
+          },
+          "title": "§164.312(d) Auth / MFA",
+          "description": "Zitadel identity provider running. MFA policy enforced — verify in Zitadel admin console.",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "expr": "hipaa_control_passing{control=\"identity_provider_healthy\"}",
+              "legendFormat": "IdP",
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [
+                { "options": { "0": { "color": "red", "index": 0, "text": "FAIL" }, "1": { "color": "green", "index": 1, "text": "PASS" } }, "type": "value" }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 3, "x": 10, "y": 1 },
+          "id": 5,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "auto"
+          },
+          "title": "§164.312(b) Audit Logging",
+          "description": "Loki log collection active and monitoring namespace healthy.",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "expr": "hipaa_control_passing{control=\"audit_logging_active\"}",
+              "legendFormat": "Audit Logs",
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [
+                { "options": { "0": { "color": "red", "index": 0, "text": "FAIL" }, "1": { "color": "green", "index": 1, "text": "PASS" } }, "type": "value" }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 3, "x": 13, "y": 1 },
+          "id": 6,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "auto"
+          },
+          "title": "§164.308(a)(7) Backup",
+          "description": "CNPG backup within 25h RPO window. Velero panels below show full backup status.",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "expr": "hipaa_control_passing{control=\"cnpg_backup_recent\"}",
+              "legendFormat": "Backup RPO",
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [
+                { "options": { "0": { "color": "red", "index": 0, "text": "FAIL" }, "1": { "color": "green", "index": 1, "text": "PASS" } }, "type": "value" }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 3, "x": 16, "y": 1 },
+          "id": 7,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "auto"
+          },
+          "title": "§164.308(a)(6) IDS Active",
+          "description": "CrowdSec intrusion detection system running and processing events.",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "expr": "hipaa_control_passing{control=\"crowdsec_ids_active\"}",
+              "legendFormat": "IDS",
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 0 }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 4, "x": 19, "y": 1 },
+          "id": 8,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "value_and_name"
+          },
+          "title": "Controls Passing / Total",
+          "description": "Count of automated technical controls currently in PASS state versus total defined controls.",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "expr": "hipaa_technical_controls_passing",
+              "legendFormat": "Passing",
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "expr": "hipaa_technical_controls_total",
+              "legendFormat": "Total",
+              "refId": "B"
+            }
+          ]
+        },
+
+        {
+          "collapsed": true,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "id": 10,
+          "title": "Row 2: Technical Safeguards §164.312 — Access Control & Encryption",
+          "type": "row",
+          "panels": [
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "red", "value": null },
+                      { "color": "green", "value": 1 }
+                    ]
+                  },
+                  "unit": "short",
+                  "mappings": [
+                    { "options": { "0": { "color": "red", "index": 0, "text": "DOWN" }, "1": { "color": "green", "index": 1, "text": "UP" } }, "type": "value" }
+                  ]
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 4, "x": 0, "y": 6 },
+              "id": 11,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.312(e)(1) WireGuard Tunnel Status",
+              "description": "flannel-wg interface up on all K3s nodes. Provides encrypted CNI traffic (WireGuard backend).",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "node_network_up{device=\"flannel-wg\"}",
+                  "legendFormat": "{{instance}}",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "red", "value": null },
+                      { "color": "yellow", "value": 2592000 },
+                      { "color": "green", "value": 7776000 }
+                    ]
+                  },
+                  "unit": "s"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 4, "x": 4, "y": 6 },
+              "id": 12,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.312(e)(2)(ii) TLS Cert Expiry — Remaining",
+              "description": "Time remaining on TLS certificates. Yellow <30d, Red <7d. Cloudflare Origin CA 15-year certs expected. Query requires Blackbox Exporter (not yet deployed — panel shows N/A until deployed).",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "probe_ssl_earliest_cert_expiry{job=\"blackbox\"} - time()",
+                  "legendFormat": "{{instance}}",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "red", "value": null },
+                      { "color": "green", "value": 1 }
+                    ]
+                  },
+                  "unit": "short",
+                  "mappings": [
+                    { "options": { "0": { "color": "red", "index": 0, "text": "DOWN" }, "1": { "color": "green", "index": 1, "text": "HEALTHY" } }, "type": "value" }
+                  ]
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 4, "x": 8, "y": 6 },
+              "id": 13,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.312(a)(2)(iv) DB SSL — CNPG",
+              "description": "CloudNativePG cluster running. SSL is enforced by default in all CNPG clusters (sslmode=verify-full). §164.312(a)(2)(iv) encryption/decryption safeguard.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "hipaa_control_passing{control=\"database_ssl_enabled\"}",
+                  "legendFormat": "DB SSL",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "red", "value": null },
+                      { "color": "green", "value": 1 }
+                    ]
+                  },
+                  "unit": "short",
+                  "mappings": [
+                    { "options": { "0": { "color": "red", "index": 0, "text": "DOWN" }, "1": { "color": "green", "index": 1, "text": "HEALTHY" } }, "type": "value" }
+                  ]
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 4, "x": 12, "y": 6 },
+              "id": 14,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.312(d) Zitadel IdP Health",
+              "description": "Zitadel OIDC provider running. MFA enforcement must be verified manually: Zitadel admin console > Organization > Policies > Login Policy > Require MFA. §164.312(d) Person/Entity Authentication.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "hipaa_control_passing{control=\"identity_provider_healthy\"}",
+                  "legendFormat": "Zitadel",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "palette-classic" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 10 },
+                      { "color": "red", "value": 50 }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 4, "x": 16, "y": 6 },
+              "id": 15,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.312(a)(1) Zitadel HTTP Errors (5m rate)",
+              "description": "HTTP 5xx error rate from Zitadel. High error rate may indicate auth service issues. Metric: http_server_return_code_counter_total (Zitadel ServiceMonitor required). §164.312(a)(1) Access Control.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "sum(rate(http_server_return_code_counter_total{namespace=\"identity\",code=~\"5..\"}[5m])) or vector(0)",
+                  "legendFormat": "5xx/s",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 5 },
+                      { "color": "red", "value": 20 }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 4, "x": 20, "y": 6 },
+              "id": 16,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.312(a)(1) Traefik 401/403 Rate (1h)",
+              "description": "Count of 401 Unauthorized and 403 Forbidden responses from Traefik in the last hour. Elevated counts indicate unauthorized access attempts. §164.312(a)(1) Access Control.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "sum(increase(traefik_entrypoint_requests_total{code=~\"401|403\"}[1h])) or vector(0)",
+                  "legendFormat": "Auth Failures",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "palette-classic" },
+                  "custom": {
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "gradientMode": "none",
+                    "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                    "insertNulls": false,
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "pointSize": 4,
+                    "scaleDistribution": { "type": "linear" },
+                    "showPoints": "never",
+                    "spanNulls": true,
+                    "stacking": { "group": "A", "mode": "none" },
+                    "thresholdsStyle": { "mode": "off" }
+                  },
+                  "unit": "reqps"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 6, "w": 12, "x": 0, "y": 9 },
+              "id": 17,
+              "options": {
+                "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              },
+              "title": "§164.312(a) Zitadel Auth Request Rate — 200 vs 4xx vs 5xx",
+              "description": "Zitadel HTTP request rate split by status code family. Spikes in 4xx indicate failed authentications. Requires Zitadel ServiceMonitor on :8080/debug/metrics.",
+              "type": "timeseries",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "sum(rate(http_server_request_count_total{namespace=\"identity\",code=~\"2..\"}[5m])) or vector(0)",
+                  "legendFormat": "2xx (success)",
+                  "refId": "A"
+                },
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "sum(rate(http_server_request_count_total{namespace=\"identity\",code=~\"4..\"}[5m])) or vector(0)",
+                  "legendFormat": "4xx (client error / auth failure)",
+                  "refId": "B"
+                },
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "sum(rate(http_server_request_count_total{namespace=\"identity\",code=~\"5..\"}[5m])) or vector(0)",
+                  "legendFormat": "5xx (server error)",
+                  "refId": "C"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "palette-classic" },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "pointSize": 4,
+                    "showPoints": "never",
+                    "spanNulls": true,
+                    "stacking": { "group": "A", "mode": "none" }
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 6, "w": 12, "x": 12, "y": 9 },
+              "id": 18,
+              "options": {
+                "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              },
+              "title": "§164.312(a)(1) RBAC — RoleBindings by Namespace",
+              "description": "Count of RoleBindings per namespace. Sudden increases may indicate privilege escalation. §164.312(a)(1) Access Control.",
+              "type": "timeseries",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "count by (namespace) (kube_rolebinding_info)",
+                  "legendFormat": "{{namespace}}",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "palette-classic" },
+                  "custom": {
+                    "drawStyle": "bars",
+                    "fillOpacity": 80,
+                    "lineWidth": 1,
+                    "spanNulls": false,
+                    "stacking": { "group": "A", "mode": "normal" }
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 6, "w": 12, "x": 0, "y": 15 },
+              "id": 19,
+              "options": {
+                "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              },
+              "title": "§164.308(a)(5)(ii)(B) Failed Login Events — Zitadel (Loki)",
+              "description": "Failed authentication events from Zitadel logs. Requires Loki/Promtail collecting identity namespace logs. High counts trigger login monitoring safeguard review.",
+              "type": "timeseries",
+              "targets": [
+                {
+                  "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+                  "expr": "sum by (namespace) (count_over_time({namespace=\"identity\"} |= \"failed\" |= \"login\" [$__interval]))",
+                  "legendFormat": "Failed Logins",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "palette-classic" },
+                  "custom": {
+                    "drawStyle": "bars",
+                    "fillOpacity": 80,
+                    "lineWidth": 1,
+                    "spanNulls": false,
+                    "stacking": { "group": "A", "mode": "normal" }
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 6, "w": 12, "x": 12, "y": 15 },
+              "id": 20,
+              "options": {
+                "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              },
+              "title": "§164.312(b) Audit Log Volume by Namespace (Loki)",
+              "description": "Log ingestion volume per namespace over time. Zero flow from a namespace may indicate a logging gap — a §164.312(b) audit control compliance issue.",
+              "type": "timeseries",
+              "targets": [
+                {
+                  "datasource": { "type": "loki", "uid": "${lokidatasource}" },
+                  "expr": "sum by (namespace) (count_over_time({namespace=~\".+\"} [$__interval]))",
+                  "legendFormat": "{{namespace}}",
+                  "refId": "A"
+                }
+              ]
+            }
+          ]
+        },
+
+        {
+          "collapsed": true,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+          "id": 30,
+          "title": "Row 3: Administrative Safeguards §164.308 — Security Incidents & IDS",
+          "type": "row",
+          "panels": [
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 1 },
+                      { "color": "red", "value": 10 }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 4, "x": 0, "y": 7 },
+              "id": 31,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.308(a)(6) CrowdSec — Active Bans",
+              "description": "Number of active IP bans applied by CrowdSec LAPI. Non-zero indicates active threat response. Requires CrowdSec prometheus endpoint enabled.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "cs_lapi_decisions_ok_total or vector(0)",
+                  "legendFormat": "Active Bans",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 1 },
+                      { "color": "red", "value": 5 }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 4, "x": 4, "y": 7 },
+              "id": 32,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.308(a)(6) CrowdSec — Attack Scenarios (24h)",
+              "description": "CrowdSec bucket overflow events in the last 24h — each represents a triggered attack scenario (brute force, port scan, credential stuffing, etc.).",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "increase(cs_bucket_overflowed_total[24h]) or vector(0)",
+                  "legendFormat": "Scenarios",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 100 },
+                      { "color": "red", "value": 1000 }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 4, "x": 8, "y": 7 },
+              "id": 33,
+              "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.308(a)(5)(ii)(B) Traefik 401/403 (5m rate)",
+              "description": "Rate of 401 Unauthorized and 403 Forbidden responses at the Traefik ingress. Sustained high rate is an indicator of brute-force or credential stuffing requiring incident response.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "sum(rate(traefik_entrypoint_requests_total{code=~\"401|403\"}[5m])) or vector(0)",
+                  "legendFormat": "Auth Failures/s",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 1 },
+                      { "color": "red", "value": 5 }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 4, "x": 12, "y": 7 },
+              "id": 34,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.308(a)(5)(ii)(B) CrowdSec Parser Errors (1h)",
+              "description": "CrowdSec log parsing failures in the last hour. High parse error rate may indicate log format changes or log source misconfiguration affecting IDS coverage.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "increase(cs_parser_hits_ko_total[1h]) or vector(0)",
+                  "legendFormat": "Parse Errors",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "palette-classic" },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "pointSize": 4,
+                    "showPoints": "never",
+                    "spanNulls": true
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 6, "w": 12, "x": 0, "y": 10 },
+              "id": 35,
+              "options": {
+                "legend": { "calcs": ["sum", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              },
+              "title": "§164.308(a)(6) CrowdSec Attack Scenarios Over Time",
+              "description": "CrowdSec bucket overflow events over time — each spike indicates triggered attack scenarios. Review scenario names via CrowdSec console for incident classification.",
+              "type": "timeseries",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "increase(cs_bucket_overflowed_total[$__interval]) or vector(0)",
+                  "legendFormat": "Attack Scenarios",
+                  "refId": "A"
+                },
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "increase(cs_lapi_decisions_ok_total[$__interval]) or vector(0)",
+                  "legendFormat": "Decisions Applied",
+                  "refId": "B"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "palette-classic" },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "pointSize": 4,
+                    "showPoints": "never",
+                    "spanNulls": true
+                  },
+                  "unit": "reqps"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 6, "w": 12, "x": 12, "y": 10 },
+              "id": 36,
+              "options": {
+                "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              },
+              "title": "§164.308(a)(4) Traefik Access — 4xx Rate by Entrypoint",
+              "description": "Rate of 4xx responses (client errors including auth failures) per Traefik entrypoint. Used for Information Access Management monitoring. Sustained 401/403 spikes require incident documentation per §164.308(a)(6).",
+              "type": "timeseries",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "sum by (entrypoint) (rate(traefik_entrypoint_requests_total{code=~\"4..\"}[5m])) or vector(0)",
+                  "legendFormat": "{{entrypoint}}",
+                  "refId": "A"
+                }
+              ]
+            }
+          ]
+        },
+
+        {
+          "collapsed": true,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+          "id": 40,
+          "title": "Row 4: Physical Safeguards §164.310 — Delegated to Hetzner",
+          "type": "row",
+          "panels": [
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "gridPos": { "h": 6, "w": 24, "x": 0, "y": 8 },
+              "id": 41,
+              "options": {
+                "content": "## Physical Safeguards — §164.310\n\nHelix Stax operates exclusively on **Hetzner Cloud and Robot (dedicated server)** infrastructure. Physical safeguards are delegated to Hetzner as the data center operator.\n\n| HIPAA Control | §164.310 Reference | Hetzner Evidence | Status |\n|---|---|---|---|\n| Facility Access Controls | §164.310(a)(1) | Hetzner ISO 27001 / SOC 2 Type II certificates | GREY — Documented |\n| Workstation Use Policy | §164.310(b) | Helix Stax internal workstation policy (ClickUp: Security Operations > Policies) | GREY — Policy |\n| Workstation Security | §164.310(c) | SSH key-only access; CIS-hardened AlmaLinux 9.7; SELinux enforcing | GREY — Documented |\n| Device & Media Controls | §164.310(d) | Hetzner manages hardware lifecycle; LUKS encryption on Robot dedicated server | GREY — Hetzner BAA |\n\n**Evidence**: Hetzner complies with EU GDPR and holds ISO 27001 certification. A Business Associate Agreement (BAA) with Hetzner is **required** before processing ePHI on this infrastructure. Status tracked in ClickUp: 01 Platform > 05 Compliance Program > Vendor Management.\n\n**NPRM 2024 note**: The proposed rule requires documentation of all physical safeguard controls regardless of delegation. Ensure BAA with Hetzner is current and on file.",
+                "mode": "markdown"
+              },
+              "title": "§164.310 Physical Safeguards — Hetzner Datacenter Delegation",
+              "description": "Physical controls delegated to Hetzner. No Prometheus metrics applicable. Evidence: Hetzner ISO 27001, BAA status in ClickUp Compliance Program.",
+              "type": "text"
+            }
+          ]
+        },
+
+        {
+          "collapsed": true,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 },
+          "id": 50,
+          "title": "Row 5: Backup & Recovery §164.308(a)(7) — RPO / RTO Compliance",
+          "type": "row",
+          "panels": [
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 43200 },
+                      { "color": "red", "value": 86400 }
+                    ]
+                  },
+                  "unit": "s"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 4, "w": 6, "x": 0, "y": 9 },
+              "id": 51,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.308(a)(7)(ii)(A) CNPG — Time Since Last Backup",
+              "description": "Time elapsed since last CNPG WAL backup. Target RPO: <24h (86400s). Yellow: >12h, Red: >24h. Metric: cnpg_collector_last_available_backup_timestamp.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "time() - cnpg_collector_last_available_backup_timestamp or vector(0)",
+                  "legendFormat": "Age",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "red", "value": null },
+                      { "color": "yellow", "value": 0.5 },
+                      { "color": "green", "value": 0.9 }
+                    ]
+                  },
+                  "unit": "percentunit"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 4, "w": 6, "x": 6, "y": 9 },
+              "id": 52,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.308(a)(7) Velero Backup Success Rate (7d)",
+              "description": "Percentage of Velero backup attempts that completed successfully over the last 7 days. Target: >90%. Requires Velero deployed. Shows 0 until Velero is operational.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "rate(velero_backup_success_total[7d]) / clamp_min(rate(velero_backup_attempt_total[7d]), 0.000001) or vector(0)",
+                  "legendFormat": "Success Rate",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 1 },
+                      { "color": "red", "value": 3 }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 4, "w": 6, "x": 12, "y": 9 },
+              "id": 53,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.308(a)(7) Velero Backup Failures (24h)",
+              "description": "Count of Velero backup failures in the last 24 hours. Any failure requires investigation and documentation per §164.308(a)(7)(ii)(A) Data Backup Plan.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "increase(velero_backup_failure_total[24h]) or vector(0)",
+                  "legendFormat": "Failures",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 5 }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 4, "w": 6, "x": 18, "y": 9 },
+              "id": 54,
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "§164.308(a)(7)(ii)(A) CNPG WAL — Ready to Archive",
+              "description": "Number of WAL files ready to archive (pending upload to object store). Should be 0 or near-0. Large backlog indicates archiving is falling behind. Metric: cnpg_collector_pg_wal_archive_status{status=\"ready\"}.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "cnpg_collector_pg_wal_archive_status{status=\"ready\"} or vector(0)",
+                  "legendFormat": "WAL Pending",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "palette-classic" },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "showPoints": "never",
+                    "spanNulls": true
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 6, "w": 12, "x": 0, "y": 13 },
+              "id": 55,
+              "options": {
+                "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              },
+              "title": "§164.308(a)(7) Velero Backup Activity Over Time",
+              "description": "Velero backup success and failure events over time. Gaps in success events indicate backup schedule failures. Requires Velero deployed with Prometheus metrics enabled.",
+              "type": "timeseries",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "increase(velero_backup_success_total[$__interval]) or vector(0)",
+                  "legendFormat": "Backup Success",
+                  "refId": "A"
+                },
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "increase(velero_backup_failure_total[$__interval]) or vector(0)",
+                  "legendFormat": "Backup Failure",
+                  "refId": "B"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "palette-classic" },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "showPoints": "never",
+                    "spanNulls": true
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 6, "w": 12, "x": 12, "y": 13 },
+              "id": 56,
+              "options": {
+                "legend": { "calcs": ["sum", "last"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                "tooltip": { "mode": "multi", "sort": "desc" }
+              },
+              "title": "§164.308(a)(7)(ii)(A) CNPG WAL Archive Status",
+              "description": "CNPG WAL archiving metrics. 'done' count should grow steadily; 'ready' count should be near 0. A growing 'ready' count indicates archiving is stalled — backup continuity at risk.",
+              "type": "timeseries",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "cnpg_collector_pg_wal_archive_status{status=\"done\"} or vector(0)",
+                  "legendFormat": "Archived",
+                  "refId": "A"
+                },
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "cnpg_collector_pg_wal_archive_status{status=\"ready\"} or vector(0)",
+                  "legendFormat": "Pending",
+                  "refId": "B"
+                }
+              ]
+            }
+          ]
+        },
+
+        {
+          "collapsed": true,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+          "id": 60,
+          "title": "Row 6: HIPAA NPRM 2024 Readiness — Proposed Rule Changes",
+          "type": "row",
+          "panels": [
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "gridPos": { "h": 5, "w": 24, "x": 0, "y": 10 },
+              "id": 61,
+              "options": {
+                "content": "## HIPAA Security Rule NPRM 2024 — Proposed Requirements\n\nThe 2024 Proposed Rule (published December 27, 2024) eliminates the \"required vs. addressable\" distinction and adds specific new technical mandates. The final rule is TBD but organizations should begin gap remediation.\n\n| New Requirement | Proposed Section | Current Status | Evidence / Action |\n|---|---|---|---|\n| **MFA without exception** | §164.312(d) | YELLOW — Zitadel MFA configured; verify all service accounts | Zitadel admin: Login Policy > Force MFA |\n| **72-hour restoration capability** | §164.308(a)(7)(ii)(B) | YELLOW — Velero planned; restoration not yet tested | Deploy Velero + test restore to staging |\n| **Bi-annual vulnerability scanning** | §164.308(a)(8) | YELLOW — No automated scanner; CrowdSec provides IDS only | Add Trivy or Grype to CI pipeline; schedule bi-annual report |\n| **24-hour breach notification** | §164.308(a)(6)(ii) | GREY — Policy needed | Create incident response SOP in ClickUp > Process Library |\n| **Annual backup testing** | §164.308(a)(7)(ii)(D) | GREY — Not yet scheduled | Create recurring ClickUp task: annual Velero restore test |\n| **Technology asset inventory** | §164.308(a)(1) | YELLOW — K3s nodes documented; apps partial | Complete asset inventory in ClickUp > Compliance Program |\n| **Eliminate addressable controls** | All 164.308/164.310 | GREY — All controls now required | Update risk register: all previously addressable = required |\n\n**Overall NPRM 2024 Readiness**: 3/7 items in progress (YELLOW). 4/7 require policy or process creation (GREY). No items fully PASS (GREEN) yet.\n\n_Note: NPRM is a proposed rule — not yet final law. Monitor HHS OCR for final rule publication. Implement as risk management priority regardless of final rule timeline._",
+                "mode": "markdown"
+              },
+              "title": "§164.308 / §164.312 HIPAA NPRM 2024 — Readiness Assessment",
+              "description": "Proposed HIPAA Security Rule changes (December 2024). All items require human action. Dashboard auto-metrics cannot assess policy compliance.",
+              "type": "text"
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 1 },
+                      { "color": "red", "value": 10 }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 6, "x": 0, "y": 15 },
+              "id": 62,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "NPRM §164.312(d) — MFA Enforcement (Zitadel HTTP Errors)",
+              "description": "Proxy metric for MFA health: Zitadel 5xx error rate. True MFA enforcement status requires manual verification in Zitadel admin console. NPRM 2024 requires MFA without exception.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "sum(rate(http_server_return_code_counter_total{namespace=\"identity\",code=~\"5..\"}[5m])) or vector(0)",
+                  "legendFormat": "Zitadel 5xx/s",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "red", "value": null },
+                      { "color": "yellow", "value": 0.5 },
+                      { "color": "green", "value": 0.9 }
+                    ]
+                  },
+                  "unit": "percentunit"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 6, "x": 6, "y": 15 },
+              "id": 63,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "NPRM §164.308(a)(7)(ii)(B) — 72h Restore Readiness",
+              "description": "Velero restore success rate — a non-zero rate indicates restoration has been tested. NPRM 2024 requires demonstrable 72-hour restoration capability. Zero = Velero not yet deployed or never tested.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "rate(velero_restore_success_total[7d]) / clamp_min(rate(velero_restore_attempt_total[7d]), 0.000001) or vector(0)",
+                  "legendFormat": "Restore Success Rate",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 50 },
+                      { "color": "red", "value": 200 }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 6, "x": 12, "y": 15 },
+              "id": 64,
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "auto"
+              },
+              "title": "NPRM §164.308(a)(8) — Node Security Alerts (24h)",
+              "description": "CrowdSec bucket overflow events over 24h — proxy for vulnerability/attack exposure. NPRM 2024 requires bi-annual vulnerability scanning. High count indicates active threat requiring immediate response.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "increase(cs_bucket_overflowed_total[24h]) or vector(0)",
+                  "legendFormat": "Security Events",
+                  "refId": "A"
+                }
+              ]
+            },
+
+            {
+              "datasource": { "type": "prometheus", "uid": "${datasource}" },
+              "fieldConfig": {
+                "defaults": {
+                  "color": { "mode": "thresholds" },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 1 }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": { "h": 3, "w": 6, "x": 18, "y": 15 },
+              "id": 65,
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "orientation": "auto",
+                "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+                "textMode": "value_and_name"
+              },
+              "title": "NPRM Asset Inventory — K3s Nodes Ready",
+              "description": "Count of K3s nodes in Ready state. NPRM 2024 requires technology asset inventory. This panel confirms cluster nodes are accounted for. Full inventory in ClickUp: 01 Platform > 05 Compliance Program.",
+              "type": "stat",
+              "targets": [
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "count(kube_node_status_condition{condition=\"Ready\",status=\"true\"})",
+                  "legendFormat": "Nodes Ready",
+                  "refId": "A"
+                },
+                {
+                  "datasource": { "type": "prometheus", "uid": "${datasource}" },
+                  "expr": "count(kube_node_status_condition{condition=\"Ready\"})",
+                  "legendFormat": "Nodes Total",
+                  "refId": "B"
+                }
+              ]
+            }
+          ]
+        }
+
+      ],
+      "refresh": "5m",
+      "schemaVersion": 39,
+      "tags": ["hipaa", "compliance", "security", "audit"],
+      "templating": {
+        "list": [
+          {
+            "current": {},
+            "hide": 0,
+            "includeAll": false,
+            "label": "Prometheus Datasource",
+            "multi": false,
+            "name": "datasource",
+            "options": [],
+            "query": "prometheus",
+            "refresh": 1,
+            "type": "datasource"
+          },
+          {
+            "current": {},
+            "hide": 0,
+            "includeAll": false,
+            "label": "Loki Datasource",
+            "multi": false,
+            "name": "lokidatasource",
+            "options": [],
+            "query": "loki",
+            "refresh": 1,
+            "type": "datasource"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-24h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "HIPAA Security Rule Compliance",
+      "uid": "helix-hipaa-compliance",
+      "version": 1,
+      "weekStart": ""
+    }
