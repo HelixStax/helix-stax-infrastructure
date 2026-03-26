@@ -88,14 +88,15 @@ grafana:
 
 prometheus:
   prometheusSpec:
-    retention: 7d
+    retention: 90d
+    retentionSize: "30GB"  # Safety cap — stop ingesting before filling disk
     storageSpec:
       volumeClaimTemplate:
         spec:
           storageClassName: local-path
           resources:
             requests:
-              storage: 10Gi
+              storage: 50Gi
     resources:
       requests:
         cpu: 200m
