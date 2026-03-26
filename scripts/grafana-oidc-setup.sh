@@ -76,13 +76,17 @@ create_oidc_client() {
         exit 1
     fi
 
+    local CREDS_FILE="/tmp/grafana-oidc-credentials"
+    printf 'GRAFANA_CLIENT_ID=%s\nGRAFANA_CLIENT_SECRET=%s\n' "$CLIENT_ID" "$CLIENT_SECRET" > "$CREDS_FILE"
+    chmod 600 "$CREDS_FILE"
+
     echo "==> OIDC client created successfully."
-    echo "    CLIENT_ID:     $CLIENT_ID"
-    echo "    CLIENT_SECRET: $CLIENT_SECRET"
+    echo "    CLIENT_ID: $CLIENT_ID"
+    echo "    Credentials written to $CREDS_FILE (chmod 600). Delete after use."
     echo ""
     echo "    Set these for the next step:"
     echo "      export GRAFANA_CLIENT_ID='$CLIENT_ID'"
-    echo "      export GRAFANA_CLIENT_SECRET='$CLIENT_SECRET'"
+    echo "      export GRAFANA_CLIENT_SECRET=\$(grep ^GRAFANA_CLIENT_SECRET $CREDS_FILE | cut -d= -f2)"
 }
 
 # ---------------------------------------------------------------------------
@@ -91,19 +95,24 @@ create_k8s_secret() {
     : "${GRAFANA_CLIENT_ID:?GRAFANA_CLIENT_ID must be set}"
     : "${GRAFANA_CLIENT_SECRET:?GRAFANA_CLIENT_SECRET must be set}"
 
-    # Copy secret creation command to CP over SSH (never echo secrets in plain logs)
-    $CP_SSH bash -s << EOF
+    # Pass secrets as env vars prepended to the remote command so the heredoc
+    # body is quoted ('EOF') and never expanded by the local shell.
+    $CP_SSH "GRAFANA_CLIENT_ID='$GRAFANA_CLIENT_ID' GRAFANA_CLIENT_SECRET='$GRAFANA_CLIENT_SECRET' bash -s" << 'EOF'
 set -euo pipefail
-# Delete existing secret if present (idempotent)
-$KUBECTL delete secret $SECRET_NAME -n $NAMESPACE --ignore-not-found=true
+KUBECTL="sudo /usr/local/bin/k3s kubectl"
+SECRET_NAME="grafana-zitadel-oauth"
+NAMESPACE="monitoring"
 
-$KUBECTL create secret generic $SECRET_NAME \
-    -n $NAMESPACE \
-    --from-literal=client-id='$GRAFANA_CLIENT_ID' \
-    --from-literal=client-secret='$GRAFANA_CLIENT_SECRET'
+# Delete existing secret if present (idempotent)
+$KUBECTL delete secret "$SECRET_NAME" -n "$NAMESPACE" --ignore-not-found=true
+
+$KUBECTL create secret generic "$SECRET_NAME" \
+    -n "$NAMESPACE" \
+    --from-literal=client-id="$GRAFANA_CLIENT_ID" \
+    --from-literal=client-secret="$GRAFANA_CLIENT_SECRET"
 
 echo "Secret $SECRET_NAME created in namespace $NAMESPACE"
-$KUBECTL get secret $SECRET_NAME -n $NAMESPACE --no-headers
+$KUBECTL get secret "$SECRET_NAME" -n "$NAMESPACE" --no-headers
 EOF
 }
 
