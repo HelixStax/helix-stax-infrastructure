@@ -1,0 +1,246 @@
+---
+# grafana-alerting-setup Job
+# Configures Grafana contact points, notification policies, mute timings,
+# service accounts, and folders after a Grafana pod restart.
+#
+# Must be triggered manually after each Grafana upgrade or pod restart
+# (Grafana runs with persistence=false and loses API-configured items on restart).
+#
+# Trigger:
+#   kubectl create job --from=job/grafana-alerting-setup grafana-alerting-setup-$(date +%Y%m%d%H%M) -n monitoring
+#
+# Prerequisites:
+#   - Grafana admin credentials in secret: monitoring-grafana (key: admin-password)
+#   - Grafana reachable at https://grafana.helixstax.net
+#
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-alerting-setup-sa
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: ops-job
+    app.kubernetes.io/part-of: helix-platform
+---
+# No k8s API access needed — this job only calls the Grafana HTTP API.
+# The ServiceAccount exists to avoid using the default SA.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: grafana-alerting-setup
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: grafana-alerting-setup
+    app.kubernetes.io/component: ops-job
+    app.kubernetes.io/part-of: helix-platform
+spec:
+  # Manual job — no CronJob schedule. Re-trigger after each Grafana restart.
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: grafana-alerting-setup
+        app.kubernetes.io/component: ops-job
+        app.kubernetes.io/part-of: helix-platform
+    spec:
+      serviceAccountName: grafana-alerting-setup-sa
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: setup
+          image: curlimages/curl:8.6.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: GRAFANA_URL
+              value: "https://grafana.helixstax.net"
+            - name: GRAFANA_USER
+              value: "admin"
+            - name: GRAFANA_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: monitoring-grafana
+                  key: admin-password
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+
+              GRAFANA_AUTH="${GRAFANA_USER}:${GRAFANA_PASS}"
+
+              echo "=== Grafana Alerting Setup ==="
+              echo "URL: ${GRAFANA_URL}"
+
+              # Helper: call Grafana API
+              gapi() {
+                method="$1"
+                path="$2"
+                data="${3:-}"
+                if [ -n "$data" ]; then
+                  curl -sf -u "$GRAFANA_AUTH" -X "$method" "${GRAFANA_URL}${path}" \
+                    -H "Content-Type: application/json" \
+                    -d "$data"
+                else
+                  curl -sf -u "$GRAFANA_AUTH" -X "$method" "${GRAFANA_URL}${path}"
+                fi
+              }
+
+              # Wait for Grafana to be ready
+              echo "-- Waiting for Grafana --"
+              for i in $(seq 1 12); do
+                if curl -sf -u "$GRAFANA_AUTH" "${GRAFANA_URL}/api/health" > /dev/null 2>&1; then
+                  echo "  Grafana ready"
+                  break
+                fi
+                echo "  Attempt $i/12 — waiting 10s..."
+                sleep 10
+              done
+
+              # ── Contact Points ────────────────────────────────────────────────
+              echo ""
+              echo "-- Contact Points --"
+
+              CP_LIST=$(gapi GET "/api/v1/provisioning/contact-points" 2>/dev/null)
+
+              N8N_EXISTS=$(echo "$CP_LIST" | grep -c '"name":"n8n-webhook"' || true)
+              if [ "$N8N_EXISTS" = "0" ]; then
+                gapi POST "/api/v1/provisioning/contact-points" '{
+                  "name": "n8n-webhook",
+                  "type": "webhook",
+                  "settings": {
+                    "url": "https://n8n.helixstax.net/webhook/grafana-alerts",
+                    "httpMethod": "POST",
+                    "maxAlerts": 10
+                  },
+                  "disableResolveMessage": false
+                }' > /dev/null
+                echo "  Created: n8n-webhook"
+              else
+                echo "  Exists: n8n-webhook"
+              fi
+
+              RC_EXISTS=$(echo "$CP_LIST" | grep -c '"name":"rocketchat-webhook"' || true)
+              if [ "$RC_EXISTS" = "0" ]; then
+                gapi POST "/api/v1/provisioning/contact-points" '{
+                  "name": "rocketchat-webhook",
+                  "type": "webhook",
+                  "settings": {
+                    "url": "https://chat.helixstax.net/hooks/PLACEHOLDER_CONFIGURE_WHEN_DEPLOYED",
+                    "httpMethod": "POST"
+                  },
+                  "disableResolveMessage": false
+                }' > /dev/null
+                echo "  Created: rocketchat-webhook (PLACEHOLDER — update URL after Rocket.Chat deploy)"
+              else
+                echo "  Exists: rocketchat-webhook"
+              fi
+
+              # ── Notification Policies ─────────────────────────────────────────
+              echo ""
+              echo "-- Notification Policies --"
+              gapi PUT "/api/v1/provisioning/policies" '{
+                "receiver": "n8n-webhook",
+                "group_by": ["grafana_folder", "alertname", "cluster", "namespace"],
+                "group_wait": "30s",
+                "group_interval": "5m",
+                "repeat_interval": "4h",
+                "routes": [
+                  {
+                    "receiver": "rocketchat-webhook",
+                    "object_matchers": [["severity", "=", "critical"]],
+                    "group_wait": "10s",
+                    "group_interval": "2m",
+                    "repeat_interval": "1h",
+                    "continue": false
+                  }
+                ]
+              }' > /dev/null
+              echo "  Updated: default -> n8n-webhook, severity=critical -> rocketchat-webhook"
+
+              # ── Mute Timings ──────────────────────────────────────────────────
+              echo ""
+              echo "-- Mute Timings --"
+              MT_EXISTS=$(gapi GET "/api/v1/provisioning/mute-timings" 2>/dev/null | \
+                grep -c '"name":"sunday-maintenance"' || true)
+              if [ "$MT_EXISTS" = "0" ]; then
+                gapi POST "/api/v1/provisioning/mute-timings" '{
+                  "name": "sunday-maintenance",
+                  "time_intervals": [
+                    {
+                      "times": [{"start_time": "02:00", "end_time": "04:00"}],
+                      "weekdays": ["sunday"],
+                      "location": "UTC"
+                    }
+                  ]
+                }' > /dev/null
+                echo "  Created: sunday-maintenance (Sunday 02:00-04:00 UTC)"
+              else
+                echo "  Exists: sunday-maintenance"
+              fi
+
+              # ── Service Accounts ──────────────────────────────────────────────
+              echo ""
+              echo "-- Service Accounts --"
+
+              create_sa() {
+                sa_name="$1"
+                role="${2:-Editor}"
+
+                SA_LIST=$(gapi GET "/api/serviceaccounts/search" 2>/dev/null)
+                SA_EXISTS=$(echo "$SA_LIST" | grep -c "\"name\":\"${sa_name}\"" || true)
+
+                if [ "$SA_EXISTS" = "0" ]; then
+                  sa_id=$(gapi POST "/api/serviceaccounts" \
+                    "{\"name\": \"${sa_name}\", \"role\": \"${role}\", \"isDisabled\": false}" | \
+                    grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+                  echo "  Created SA: ${sa_name} (id: ${sa_id})"
+                else
+                  sa_id=$(echo "$SA_LIST" | grep -o "\"id\":[0-9]*,\"name\":\"${sa_name}\"" | \
+                    grep -o '"id":[0-9]*' | cut -d: -f2)
+                  echo "  Exists SA: ${sa_name} (id: ${sa_id})"
+                fi
+
+                # Create fresh token (tokens are not idempotent)
+                token=$(gapi POST "/api/serviceaccounts/${sa_id}/tokens" \
+                  "{\"name\": \"k8s-job-$(date +%s)\"}" | \
+                  grep -o '"key":"[^"]*"' | cut -d'"' -f4)
+                echo "  Token generated for ${sa_name} (store in secret if needed)"
+              }
+
+              create_sa "n8n-sa" "Editor"
+              create_sa "devtron-sa" "Editor"
+
+              # ── Folders ───────────────────────────────────────────────────────
+              echo ""
+              echo "-- Folders --"
+
+              FOLDER_LIST=$(gapi GET "/api/folders" 2>/dev/null)
+              for folder_name in "Identity" "Security" "AI" "Platform" "Monitoring" "Applications"; do
+                FOLDER_EXISTS=$(echo "$FOLDER_LIST" | grep -c "\"title\":\"${folder_name}\"" || true)
+                if [ "$FOLDER_EXISTS" = "0" ]; then
+                  gapi POST "/api/folders" "{\"title\": \"${folder_name}\"}" > /dev/null
+                  echo "  Created: ${folder_name}"
+                else
+                  echo "  Exists: ${folder_name}"
+                fi
+              done
+
+              echo ""
+              echo "=== Setup complete ==="

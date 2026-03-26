@@ -1,0 +1,220 @@
+---
+# zitadel-backup-verify CronJob
+# Weekly verification that CNPG PostgreSQL backups are recent.
+#
+# Checks:
+#   1. At least one CNPG Backup object exists in the database namespace
+#   2. The most recent completed backup is less than 24 hours old
+#   3. No backup is in a failed state
+#
+# Schedule: 0 9 * * 1 (Monday at 09:00 UTC)
+#
+# Results logged to stdout — visible via:
+#   kubectl logs -n database -l app.kubernetes.io/name=zitadel-backup-verify
+#
+# RBAC scope: read-only on Backup resources in database namespace only.
+#
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zitadel-backup-verify-sa
+  namespace: database
+  labels:
+    app.kubernetes.io/component: ops-job
+    app.kubernetes.io/part-of: helix-platform
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: zitadel-backup-verify-role
+  namespace: database
+  labels:
+    app.kubernetes.io/component: ops-job
+    app.kubernetes.io/part-of: helix-platform
+rules:
+  # Read CNPG Backup and ScheduledBackup objects
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["backups", "scheduledbackups"]
+    verbs: ["get", "list"]
+  # Read pods to check CNPG cluster health
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: zitadel-backup-verify-rb
+  namespace: database
+  labels:
+    app.kubernetes.io/component: ops-job
+    app.kubernetes.io/part-of: helix-platform
+subjects:
+  - kind: ServiceAccount
+    name: zitadel-backup-verify-sa
+    namespace: database
+roleRef:
+  kind: Role
+  name: zitadel-backup-verify-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: zitadel-backup-verify
+  namespace: database
+  labels:
+    app.kubernetes.io/name: zitadel-backup-verify
+    app.kubernetes.io/component: ops-job
+    app.kubernetes.io/part-of: helix-platform
+spec:
+  schedule: "0 9 * * 1"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 4
+  failedJobsHistoryLimit: 4
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: 300
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: zitadel-backup-verify
+            app.kubernetes.io/component: ops-job
+            app.kubernetes.io/part-of: helix-platform
+        spec:
+          serviceAccountName: zitadel-backup-verify-sa
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          containers:
+            - name: verify
+              image: bitnami/kubectl:1.32
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 32Mi
+                limits:
+                  cpu: 200m
+                  memory: 64Mi
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -euo pipefail
+
+                  NAMESPACE="database"
+                  MAX_AGE_HOURS=24
+                  ERRORS=0
+
+                  echo "=== CNPG Backup Verification ==="
+                  echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                  echo "Namespace: ${NAMESPACE}"
+                  echo "Max acceptable backup age: ${MAX_AGE_HOURS}h"
+                  echo ""
+
+                  # ── Check 1: List all backups ─────────────────────────────────
+                  echo "-- Check 1: CNPG Backup objects --"
+                  BACKUP_LIST=$(kubectl get backups -n "$NAMESPACE" \
+                    -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{.status.phase}{"|"}{.status.stoppedAt}{"\n"}{end}' \
+                    2>/dev/null || echo "")
+
+                  if [ -z "$BACKUP_LIST" ]; then
+                    echo "  FAIL: No CNPG Backup objects found in namespace ${NAMESPACE}"
+                    echo "  This may mean backups have never run or CNPG is not configured."
+                    ERRORS=$((ERRORS + 1))
+                  else
+                    TOTAL=$(echo "$BACKUP_LIST" | grep -c '|' || true)
+                    echo "  Found ${TOTAL} backup object(s):"
+                    echo "$BACKUP_LIST" | while IFS='|' read -r name phase stopped_at; do
+                      echo "    ${name}: phase=${phase}, completedAt=${stopped_at:-unknown}"
+                    done
+                  fi
+
+                  # ── Check 2: Most recent completed backup age ─────────────────
+                  echo ""
+                  echo "-- Check 2: Most recent completed backup age --"
+
+                  # Get the most recent completed backup's stop time
+                  LAST_COMPLETED=$(kubectl get backups -n "$NAMESPACE" \
+                    -o jsonpath='{range .items[*]}{.status.stoppedAt}{"\n"}{end}' \
+                    2>/dev/null | grep -v '^$' | sort -r | head -1 || echo "")
+
+                  if [ -z "$LAST_COMPLETED" ]; then
+                    echo "  FAIL: No completed backups found (no stoppedAt timestamps)"
+                    ERRORS=$((ERRORS + 1))
+                  else
+                    echo "  Last completed backup: ${LAST_COMPLETED}"
+
+                    # Parse ISO 8601 timestamp and compare to now
+                    # date -d is GNU date (available in bitnami/kubectl)
+                    BACKUP_EPOCH=$(date -d "$LAST_COMPLETED" +%s 2>/dev/null || echo "0")
+                    NOW_EPOCH=$(date +%s)
+                    AGE_SECONDS=$(( NOW_EPOCH - BACKUP_EPOCH ))
+                    AGE_HOURS=$(( AGE_SECONDS / 3600 ))
+                    AGE_MINUTES=$(( (AGE_SECONDS % 3600) / 60 ))
+
+                    echo "  Backup age: ${AGE_HOURS}h ${AGE_MINUTES}m"
+
+                    if [ "$AGE_HOURS" -lt "$MAX_AGE_HOURS" ]; then
+                      echo "  PASS: Backup is within ${MAX_AGE_HOURS}h threshold"
+                    else
+                      echo "  FAIL: Backup is ${AGE_HOURS}h old (threshold: ${MAX_AGE_HOURS}h)"
+                      echo "  ACTION REQUIRED: Investigate why scheduled backups are not running."
+                      ERRORS=$((ERRORS + 1))
+                    fi
+                  fi
+
+                  # ── Check 3: Failed backup detection ─────────────────────────
+                  echo ""
+                  echo "-- Check 3: Failed backups --"
+
+                  FAILED_BACKUPS=$(kubectl get backups -n "$NAMESPACE" \
+                    -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{.status.phase}{"\n"}{end}' \
+                    2>/dev/null | grep "|Failed" || true)
+
+                  if [ -n "$FAILED_BACKUPS" ]; then
+                    echo "  FAIL: Found backups in Failed state:"
+                    echo "$FAILED_BACKUPS" | awk '{print "    " $0}'
+                    ERRORS=$((ERRORS + 1))
+                  else
+                    echo "  PASS: No backups in Failed state"
+                  fi
+
+                  # ── Check 4: ScheduledBackup status ──────────────────────────
+                  echo ""
+                  echo "-- Check 4: ScheduledBackup objects --"
+
+                  SCHED_LIST=$(kubectl get scheduledbackups -n "$NAMESPACE" \
+                    -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{.status.lastScheduleTime}{"\n"}{end}' \
+                    2>/dev/null || echo "")
+
+                  if [ -z "$SCHED_LIST" ]; then
+                    echo "  INFO: No ScheduledBackup objects found (may be using WAL archiving only)"
+                  else
+                    echo "  ScheduledBackup objects:"
+                    echo "$SCHED_LIST" | while IFS='|' read -r name last_schedule; do
+                      echo "    ${name}: lastScheduleTime=${last_schedule:-unknown}"
+                    done
+                  fi
+
+                  # ── Summary ───────────────────────────────────────────────────
+                  echo ""
+                  echo "=== Summary ==="
+                  if [ "$ERRORS" -eq 0 ]; then
+                    echo "RESULT: BACKUP VERIFIED (0 failures)"
+                    exit 0
+                  else
+                    echo "RESULT: BACKUP VERIFICATION FAILED (${ERRORS} check(s) failed)"
+                    echo "Check Grafana alerts and CNPG cluster status."
+                    exit 1
+                  fi
