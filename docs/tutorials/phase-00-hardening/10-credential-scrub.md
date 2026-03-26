@@ -81,9 +81,9 @@ Before scrubbing, document what credentials exist so we know what needs to be re
 
 | Credential | Old Value | Source | Regeneration Plan |
 |------------|-----------|--------|-------------------|
-| Devtron admin password | `WC95pufhdcz-2enB` | infrastructure_k3s.md, line 38 | Fresh install generates new password (Phase 9) |
-| ArgoCD admin password | `n6BRV-Dyodo9yqC6` | infrastructure_k3s.md, line 39 | Fresh install generates new password (Phase 9) |
-| ArgoCD devtron account password | `cZum5TmSk906MOO8` | infrastructure_k3s.md, line 40 | Fresh install generates new password (Phase 9) |
+| Devtron admin password | `[REDACTED]` | infrastructure_k3s.md, line 38 | Fresh install generates new password (Phase 9) |
+| ArgoCD admin password | `[REDACTED]` | infrastructure_k3s.md, line 39 | Fresh install generates new password (Phase 9) |
+| ArgoCD devtron account password | `[REDACTED]` | infrastructure_k3s.md, line 40 | Fresh install generates new password (Phase 9) |
 
 > [!WARNING]
 > The table above contains the actual old passwords for documentation purposes. After the K3s wipe, these are completely dead. Do NOT reuse them.
@@ -98,9 +98,9 @@ Edit `~/.claude/projects/C--Users-MSI-LAPTOP/memory/infrastructure_k3s.md`.
 
 ```
 ## Devtron Credentials (POST-REINSTALL 2026-03-10)
-- Devtron admin password: `WC95pufhdcz-2enB`
-- ArgoCD admin password: `n6BRV-Dyodo9yqC6`
-- ArgoCD devtron account password: `cZum5TmSk906MOO8`
+- Devtron admin password: `[REDACTED]`
+- ArgoCD admin password: `[REDACTED]`
+- ArgoCD devtron account password: `[REDACTED]`
 - NodePort: **31656** (changed from 31379)
 ```
 
@@ -126,9 +126,9 @@ Open the file in your editor and make the replacements above.
 MEMFILE="$HOME/.claude/projects/C--Users-MSI-LAPTOP/memory/infrastructure_k3s.md"
 
 # Replace each credential line
-sed -i 's/Devtron admin password: `WC95pufhdcz-2enB`/Devtron admin password: [ROTATED — invalidated by K3s wipe, regenerated in Phase 9]/' "$MEMFILE"
-sed -i 's/ArgoCD admin password: `n6BRV-Dyodo9yqC6`/ArgoCD admin password: [ROTATED — invalidated by K3s wipe, regenerated in Phase 9]/' "$MEMFILE"
-sed -i 's/ArgoCD devtron account password: `cZum5TmSk906MOO8`/ArgoCD devtron account password: [ROTATED — invalidated by K3s wipe, regenerated in Phase 9]/' "$MEMFILE"
+sed -i 's/Devtron admin password: `[REDACTED]`/Devtron admin password: [ROTATED — invalidated by K3s wipe, regenerated in Phase 9]/' "$MEMFILE"
+sed -i 's/ArgoCD admin password: `[REDACTED]`/ArgoCD admin password: [ROTATED — invalidated by K3s wipe, regenerated in Phase 9]/' "$MEMFILE"
+sed -i 's/ArgoCD devtron account password: `[REDACTED]`/ArgoCD devtron account password: [ROTATED — invalidated by K3s wipe, regenerated in Phase 9]/' "$MEMFILE"
 sed -i 's/NodePort: \*\*31656\*\* (changed from 31379)/NodePort: TBD (assigned during Phase 9 fresh install)/' "$MEMFILE"
 
 # Update the section header
@@ -170,9 +170,9 @@ MEMFILE="$HOME/.claude/projects/C--Users-MSI-LAPTOP/memory/infrastructure_k3s.md
 echo "=== Credential Scrub Verification ==="
 
 echo "--- Searching for known credential patterns ---"
-grep -n "WC95pufhdcz" "$MEMFILE" && echo "FAIL: Devtron password still present!" || echo "PASS: Devtron password scrubbed"
-grep -n "n6BRV-Dyodo" "$MEMFILE" && echo "FAIL: ArgoCD admin password still present!" || echo "PASS: ArgoCD admin password scrubbed"
-grep -n "cZum5TmSk90" "$MEMFILE" && echo "FAIL: ArgoCD devtron password still present!" || echo "PASS: ArgoCD devtron password scrubbed"
+grep -n "\[REDACTED\]" "$MEMFILE" && echo "FAIL: Devtron password still present!" || echo "PASS: Devtron password scrubbed"
+grep -n "\[REDACTED\]" "$MEMFILE" && echo "FAIL: ArgoCD admin password still present!" || echo "PASS: ArgoCD admin password scrubbed"
+grep -n "\[REDACTED\]" "$MEMFILE" && echo "FAIL: ArgoCD devtron password still present!" || echo "PASS: ArgoCD devtron password scrubbed"
 
 echo ""
 echo "--- Searching for any remaining password-like values ---"

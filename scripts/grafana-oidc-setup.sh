@@ -186,7 +186,7 @@ verify_grafana() {
         echo "    1. Open https://grafana.helixstax.net in browser"
         echo "    2. Confirm 'Sign in with Zitadel' button is visible"
         echo "    3. Log in as admin@helixstax.com — should get GrafanaAdmin role"
-        echo "    4. Confirm local admin login (admin / helix-temp-password) still works"
+        echo "    4. Confirm local admin login works (password in grafana-admin-secret)"
     else
         echo "[WARN] Grafana not reachable at https://grafana.helixstax.net"
         echo "       Check IngressRoute and Cloudflare tunnel config."

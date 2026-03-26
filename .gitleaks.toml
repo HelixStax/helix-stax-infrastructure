@@ -3,3 +3,15 @@ paths = [
   '''.*\.sops\..*''',
   '''.*secrets.*\.enc\..*'''
 ]
+
+[[rules]]
+id = "helm-admin-password"
+description = "Plaintext adminPassword in Helm values"
+regex = '''adminPassword:\s*[^\s<{$"']'''
+tags = ["helm", "password"]
+
+[[rules]]
+id = "helm-password-value"
+description = "Plaintext password value in Helm values"
+regex = '''[Pp]assword:\s*[A-Za-z0-9+/=]{8,}'''
+tags = ["helm", "password"]
