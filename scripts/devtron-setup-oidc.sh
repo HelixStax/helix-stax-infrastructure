@@ -191,8 +191,8 @@ connectors:
     name: \"Zitadel\"
     config:
       issuer: https://zitadel.helixstax.net
-      clientID: ${DEVTRON_CLIENT_ID}
-      clientSecret: ${DEVTRON_CLIENT_SECRET}
+      clientID: \"${DEVTRON_CLIENT_ID}\"
+      clientSecret: \"${DEVTRON_CLIENT_SECRET}\"
       redirectURI: https://devtron.helixstax.net/orchestrator/api/dex/callback
       scopes:
         - openid
