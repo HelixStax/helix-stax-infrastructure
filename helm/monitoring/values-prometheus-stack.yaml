@@ -23,6 +23,32 @@ grafana:
     limits:
       memory: 256Mi
 
+  # Plugins — installed at startup, survive pod restarts
+  plugins:
+    - yesoreyeram-infinity-datasource  # Query any HTTP/JSON/CSV/XML/GraphQL source
+
+  # Loki datasource — provisioned so it survives pod restarts (persistence=false)
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki.monitoring.svc.cluster.local:3100
+      access: proxy
+      uid: loki
+      isDefault: false
+      version: 1
+
+  # Dashboard sidecar — enables folder annotation so provisioned dashboards
+  # land in organized Grafana folders instead of all in General.
+  # The grafana_folder annotation on ConfigMaps controls placement.
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      folderAnnotation: grafana_folder
+      provider:
+        foldersFromFilesStructure: true
+
   # OIDC client credentials — sourced from grafana-zitadel-oauth secret (monitoring namespace)
   # Create secret before helm upgrade:
   #   sudo /usr/local/bin/k3s kubectl create secret generic grafana-zitadel-oauth \

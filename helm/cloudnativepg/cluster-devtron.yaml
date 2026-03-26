@@ -69,3 +69,10 @@ spec:
       memory: 256Mi
     limits:
       memory: 512Mi
+
+  monitoring:
+    # enablePodMonitor is deprecated in newer CNPG versions.
+    # A manual PodMonitor with label release=monitoring is created via:
+    #   k8s/monitoring/cnpg-podmonitor.yaml
+    # This is required so kube-prometheus-stack picks up the metrics.
+    enablePodMonitor: false

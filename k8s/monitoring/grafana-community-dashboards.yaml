@@ -1,0 +1,43 @@
+# Grafana Community Dashboard ConfigMaps — Helix Stax
+#
+# These ConfigMaps store community dashboard JSON files and are provisioned
+# into Grafana automatically by the grafana-sc-dashboard sidecar container.
+#
+# How it works:
+#   - kube-prometheus-stack deploys a k8s-sidecar container that watches
+#     ConfigMaps with label grafana_dashboard=1 across all namespaces.
+#   - The grafana_folder annotation routes the dashboard to the correct folder.
+#   - FOLDER_ANNOTATION=grafana_folder must be set in the sidecar (configured
+#     via values-prometheus-stack.yaml grafana.sidecar.dashboards.folderAnnotation).
+#
+# This approach survives Grafana pod restarts (persistence=false) because
+# the dashboards are loaded from ConfigMaps on startup.
+#
+# To add a new community dashboard:
+#   1. Download JSON from https://grafana.com/grafana/dashboards/<ID>
+#   2. Add a ConfigMap section below
+#   3. kubectl apply -f grafana-community-dashboards.yaml
+#
+# NOTE: Dashboard JSON is stored in a separate secret/configmap referenced
+# via --from-file on the cluster. The dashboard JSON files are NOT inlined
+# here due to size (100KB-500KB each). They are created on the cluster via:
+#
+#   python3 /tmp/create-dashboard-configmaps.py
+#
+# See scripts/grafana-dashboard-setup.sh for the bootstrap script.
+#
+# Applied dashboards (as of 2026-03-26):
+#   ConfigMap-provisioned (survive pod restarts):
+#   - helix-stax-node-exporter-full     (ID: 1860)  -> Infrastructure
+#   - helix-stax-traefik-dashboard      (ID: 17346) -> Networking
+#   - helix-stax-cloudnativepg-dashboard (ID: 20417) -> Database
+#   - helix-stax-postgresql-dashboard   (ID: 9628)  -> Database
+#   - helix-stax-argocd-dashboard       (ID: 14584) -> CI-CD
+#   - helix-stax-argocd-app-overview    (ID: 19974) -> CI-CD
+#
+#   API-imported (ephemeral — wiped on pod restart, re-import if needed):
+#   - Kubernetes / Views / Pods         (ID: 15760) -> Infrastructure
+#   - kubernetes-persistent-volumes     (ID: 13646) -> Infrastructure
+#
+#   Note: Dashboard 20485 is NOT CNPG — it's a Zabbix/Downdetector dashboard.
+#   The correct CNPG dashboard is 20417 (helix-stax-cloudnativepg-dashboard).

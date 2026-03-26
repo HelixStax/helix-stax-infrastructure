@@ -1,0 +1,34 @@
+# PodMonitor for CloudNativePG helix-pg cluster
+# CNPG built-in enablePodMonitor=true doesn't add the release:monitoring label
+# required by kube-prometheus-stack's podMonitorSelector.
+# This manual PodMonitor replaces it.
+#
+# First disable the built-in one:
+#   kubectl patch cluster helix-pg -n database --type=merge \
+#     -p '{"spec":{"monitoring":{"enablePodMonitor":false}}}'
+# Then apply this file:
+#   kubectl apply -f cnpg-podmonitor.yaml
+#
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: helix-pg
+  namespace: database
+  labels:
+    app.kubernetes.io/component: database
+    app.kubernetes.io/instance: helix-pg
+    app.kubernetes.io/managed-by: cloudnative-pg
+    app.kubernetes.io/name: postgresql
+    # Required by kube-prometheus-stack podMonitorSelector
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      cnpg.io/cluster: helix-pg
+  podMetricsEndpoints:
+    - port: metrics
+      scheme: http
+      interval: 30s
+  namespaceSelector:
+    matchNames:
+      - database
