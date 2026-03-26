@@ -28,11 +28,37 @@
 #
 # Applied dashboards (as of 2026-03-26):
 #   ConfigMap-provisioned (survive pod restarts):
-#   - helix-stax-node-exporter-full      (ID: 1860)  -> Infrastructure
-#   - helix-stax-traefik-dashboard       (ID: 17346) -> Networking
-#   - helix-stax-cloudnativepg-dashboard (ID: 20417) -> Database
-#   - helix-stax-argocd-dashboard        (ID: 14584) -> CI-CD
-#   - helix-stax-argocd-app-overview     (ID: 19974) -> CI-CD
+#
+#   Infrastructure folder:
+#   - helix-stax-node-exporter-full      (ID: 1860)  -> Node Exporter Full
+#   - helix-stax-loki-dashboard          (ID: 13407) -> Loki2.0 Global Metrics
+#
+#   Networking folder:
+#   - helix-stax-traefik-dashboard       (ID: 17346) -> Traefik Official Standalone
+#
+#   Database folder:
+#   - helix-stax-cloudnativepg-dashboard (ID: 20417) -> CloudNativePG
+#   - helix-stax-valkey-dashboard        (ID: 763)   -> Redis/Valkey (ready for when Valkey deploys)
+#   - helix-stax-minio-dashboard         (ID: 13502) -> MinIO Dashboard
+#
+#   CI-CD folder:
+#   - helix-stax-argocd-dashboard        (ID: 14584) -> ArgoCD
+#   - helix-stax-argocd-app-overview     (ID: 19974) -> ArgoCD App Overview
+#
+#   Identity folder (Grafana folder exists, dashboards pending):
+#   - Zitadel: No community dashboard available. Zitadel exposes Prometheus metrics at
+#     /debug/metrics. Custom dashboard needed — future work item.
+#
+#   Networking notes:
+#   - Flannel/WireGuard: No suitable community dashboard found. Flannel (ID 12561) is
+#     unrelated; WireGuard (ID 14953) is for MongoDB Atlas. WireGuard metrics are not
+#     exposed by default in flannel-wg mode — would require custom exporter.
+#
+#   CrowdSec notes:
+#   - No official CrowdSec dashboard on grafana.com community site.
+#   - CrowdSec exposes Prometheus metrics at localhost:6060/metrics on each node.
+#     Requires a ServiceMonitor pointing to hostNetwork port 6060 AND a custom dashboard.
+#     Future work: add ServiceMonitor + custom dashboard JSON.
 #
 #   REMOVED dashboards (DO NOT RE-ADD via bootstrap script):
 #   - helix-stax-postgresql-dashboard   (ID: 9628, uid: 000000039)

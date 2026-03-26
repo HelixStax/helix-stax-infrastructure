@@ -65,12 +65,19 @@ def create_dashboard_configmap(filepath, folder, cm_name, namespace):
 
 # Dashboard definitions: (grafana.com ID, local filename, Grafana folder, ConfigMap name)
 DASHBOARDS = [
+    # Infrastructure
     (1860,  "node-exporter-full.json",          "Infrastructure", "helix-stax-node-exporter-full"),
+    (13407, "loki.json",                         "Infrastructure", "helix-stax-loki-dashboard"),
+    # Networking
     (17346, "traefik-official-standalone.json",  "Networking",     "helix-stax-traefik-dashboard"),
+    # Database
     (20417, "cloudnativepg.json",               "Database",       "helix-stax-cloudnativepg-dashboard"),
-    (9628,  "postgresql-database.json",          "Database",       "helix-stax-postgresql-dashboard"),
+    (763,   "valkey-redis.json",                 "Database",       "helix-stax-valkey-dashboard"),
+    (13502, "minio.json",                        "Database",       "helix-stax-minio-dashboard"),
+    # CI-CD
     (14584, "argocd.json",                       "CI-CD",          "helix-stax-argocd-dashboard"),
     (19974, "argocd-app-overview.json",          "CI-CD",          "helix-stax-argocd-app-overview"),
+    # NOTE: Dashboard ID 9628 (postgresql-database) removed — redundant with CNPG dashboard 20417.
 ]
 
 for gnet_id, filename, folder, cm_name in DASHBOARDS:
