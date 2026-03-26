@@ -1,0 +1,61 @@
+# Devtron Operator Helm Values
+# Release: devtron
+# Namespace: devtroncd
+# Chart: devtron/devtron-operator (0.23.2)
+#
+# External PostgreSQL via CloudNativePG (helix-pg cluster in database namespace)
+# PG password sourced from: kubectl -n database get secret helix-pg-app -o jsonpath='{.data.password}' | base64 -d
+#
+# IMPORTANT:
+# - PG_USER must be "postgres" (Devtron migrations use SET ROLE postgres)
+# - postgres superuser password must match the value below
+# - Set postgres password: kubectl exec helix-pg-1 -n database -- psql -U postgres -c "ALTER USER postgres PASSWORD '<password>';"
+#
+# OIDC SSO:
+# - SSO is configured POST-install via scripts/devtron-setup-oidc.sh
+# - The script patches devtron-secret.DEX_CONFIG with the Dex YAML config
+# - See docs/architecture/devtron-oidc-integration.md for architecture details
+#
+# Pre-requisites before helm install:
+# 1. CNPG operator + helix-pg cluster running in database namespace
+# 2. Databases created: orchestrator, lens, git_sensor, casbin, clairv4 (all owned by devtron)
+# 3. postgres superuser password set to match PG_PASSWORD below
+# 4. Pre-create in devtroncd namespace (Helm pre-install hook bug):
+#    - ServiceAccount: devtron-default-sa (with Helm labels/annotations)
+#    - ConfigMap: devtron-cm (with PG_ADDR, PG_DATABASE, PG_PORT, PG_USER)
+#    - ConfigMap: devtron-custom-cm (POSTGRES_MIGRATED, INSTALLED_MODULES)
+#    - ConfigMap: devtron-common-cm (empty data)
+#
+# Install:
+#   PG_PASSWORD=$(kubectl -n database get secret helix-pg-app -o jsonpath='{.data.password}' | base64 -d)
+#   # Replace <PG_PASSWORD> below with actual value, then:
+#   helm upgrade --install devtron devtron/devtron-operator --namespace devtroncd -f values.yaml --timeout 10m
+#
+# Post-install SSO setup:
+#   IAM_ADMIN_PAT="..." bash scripts/devtron-setup-oidc.sh create-oidc-client
+#   DEVTRON_CLIENT_ID="..." DEVTRON_CLIENT_SECRET="..." bash scripts/devtron-setup-oidc.sh deploy
+
+installer:
+  modules:
+    - cicd
+
+global:
+  externalPostgres:
+    enabled: true
+    # PLACEHOLDER — replace with actual password from helix-pg-app secret
+    PG_PASSWORD: "<REPLACE_WITH_PG_PASSWORD>"
+    PG_ADDR: "helix-pg-rw.database.svc.cluster.local"
+  dbConfig:
+    PG_ADDR: "helix-pg-rw.database.svc.cluster.local"
+    PG_PORT: "5432"
+    PG_USER: "postgres"
+    PG_DATABASE: "orchestrator"
+
+components:
+  devtron:
+    service:
+      type: ClusterIP
+      port: 80
+
+argo-cd:
+  enabled: false

@@ -1,0 +1,19 @@
+# Devtron IngressRoute
+# Namespace: devtroncd
+# Host: devtron.helixstax.net (via Cloudflare Tunnel)
+#
+# Apply: kubectl apply -f ingressroute.yaml
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: devtron
+  namespace: devtroncd
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`devtron.helixstax.net`)
+      kind: Rule
+      services:
+        - name: devtron-service
+          port: 80

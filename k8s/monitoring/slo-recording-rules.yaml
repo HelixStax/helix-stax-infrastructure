@@ -1,0 +1,468 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: helix-stax-slo-rules
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    # -------------------------------------------------------------------------
+    # Recording rules — error ratios at multiple time windows.
+    # These are the foundation for multi-window burn rate alerting.
+    # Naming convention: helix:{service}:{sli}:{window}
+    # -------------------------------------------------------------------------
+    - name: helix_stax_slo_error_ratios
+      interval: 30s
+      rules:
+
+        # --- Traefik Availability (ingress tier 1, SLO 99.9%) ---
+        - record: helix:traefik:error_ratio:rate5m
+          expr: |
+            sum(rate(traefik_entrypoint_requests_total{code=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(traefik_entrypoint_requests_total[5m])), 1)
+
+        - record: helix:traefik:error_ratio:rate30m
+          expr: |
+            sum(rate(traefik_entrypoint_requests_total{code=~"5.."}[30m]))
+            /
+            clamp_min(sum(rate(traefik_entrypoint_requests_total[30m])), 1)
+
+        - record: helix:traefik:error_ratio:rate1h
+          expr: |
+            sum(rate(traefik_entrypoint_requests_total{code=~"5.."}[1h]))
+            /
+            clamp_min(sum(rate(traefik_entrypoint_requests_total[1h])), 1)
+
+        - record: helix:traefik:error_ratio:rate2h
+          expr: |
+            sum(rate(traefik_entrypoint_requests_total{code=~"5.."}[2h]))
+            /
+            clamp_min(sum(rate(traefik_entrypoint_requests_total[2h])), 1)
+
+        - record: helix:traefik:error_ratio:rate6h
+          expr: |
+            sum(rate(traefik_entrypoint_requests_total{code=~"5.."}[6h]))
+            /
+            clamp_min(sum(rate(traefik_entrypoint_requests_total[6h])), 1)
+
+        - record: helix:traefik:error_ratio:rate1d
+          expr: |
+            sum(rate(traefik_entrypoint_requests_total{code=~"5.."}[1d]))
+            /
+            clamp_min(sum(rate(traefik_entrypoint_requests_total[1d])), 1)
+
+        - record: helix:traefik:error_ratio:rate3d
+          expr: |
+            sum(rate(traefik_entrypoint_requests_total{code=~"5.."}[3d]))
+            /
+            clamp_min(sum(rate(traefik_entrypoint_requests_total[3d])), 1)
+
+        # Traefik 30-day availability for dashboard (1 = perfect, 0 = total outage)
+        - record: helix:traefik:availability:rate30d
+          expr: |
+            1 - (
+              sum(rate(traefik_entrypoint_requests_total{code=~"5.."}[30d]))
+              /
+              clamp_min(sum(rate(traefik_entrypoint_requests_total[30d])), 1)
+            )
+
+        # Traefik error budget remaining (1.0 = full budget, 0 = exhausted, negative = breached)
+        # Formula: 1 - (error_consumed / error_budget_allowed)
+        # SLO 99.9% => error_budget = 0.001
+        - record: helix:traefik:error_budget_remaining
+          expr: |
+            1 - (
+              (1 - helix:traefik:availability:rate30d)
+              /
+              0.001
+            )
+
+        # --- Zitadel Availability (identity tier 1, SLO 99.9%) ---
+        # Uses http_server_return_code_counter_total with return_code label (confirmed live)
+        - record: helix:zitadel:error_ratio:rate5m
+          expr: |
+            sum(rate(http_server_return_code_counter_total{return_code=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(http_server_return_code_counter_total[5m])), 1)
+
+        - record: helix:zitadel:error_ratio:rate1h
+          expr: |
+            sum(rate(http_server_return_code_counter_total{return_code=~"5.."}[1h]))
+            /
+            clamp_min(sum(rate(http_server_return_code_counter_total[1h])), 1)
+
+        - record: helix:zitadel:error_ratio:rate6h
+          expr: |
+            sum(rate(http_server_return_code_counter_total{return_code=~"5.."}[6h]))
+            /
+            clamp_min(sum(rate(http_server_return_code_counter_total[6h])), 1)
+
+        - record: helix:zitadel:availability:rate30d
+          expr: |
+            1 - (
+              sum(rate(http_server_return_code_counter_total{return_code=~"5.."}[30d]))
+              /
+              clamp_min(sum(rate(http_server_return_code_counter_total[30d])), 1)
+            )
+
+        - record: helix:zitadel:error_budget_remaining
+          expr: |
+            1 - (
+              (1 - helix:zitadel:availability:rate30d)
+              /
+              0.001
+            )
+
+        # --- Kubernetes API Server (tier 1, SLO 99.9%) ---
+        # apiserver_request_total is high-cardinality — always use recording rules
+        - record: helix:apiserver:error_ratio:rate5m
+          expr: |
+            sum(rate(apiserver_request_total{code=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(apiserver_request_total[5m])), 1)
+
+        - record: helix:apiserver:error_ratio:rate30m
+          expr: |
+            sum(rate(apiserver_request_total{code=~"5.."}[30m]))
+            /
+            clamp_min(sum(rate(apiserver_request_total[30m])), 1)
+
+        - record: helix:apiserver:error_ratio:rate1h
+          expr: |
+            sum(rate(apiserver_request_total{code=~"5.."}[1h]))
+            /
+            clamp_min(sum(rate(apiserver_request_total[1h])), 1)
+
+        - record: helix:apiserver:error_ratio:rate2h
+          expr: |
+            sum(rate(apiserver_request_total{code=~"5.."}[2h]))
+            /
+            clamp_min(sum(rate(apiserver_request_total[2h])), 1)
+
+        - record: helix:apiserver:error_ratio:rate6h
+          expr: |
+            sum(rate(apiserver_request_total{code=~"5.."}[6h]))
+            /
+            clamp_min(sum(rate(apiserver_request_total[6h])), 1)
+
+        - record: helix:apiserver:availability:rate30d
+          expr: |
+            1 - (
+              sum(rate(apiserver_request_total{code=~"5.."}[30d]))
+              /
+              clamp_min(sum(rate(apiserver_request_total[30d])), 1)
+            )
+
+        - record: helix:apiserver:error_budget_remaining
+          expr: |
+            1 - (
+              (1 - helix:apiserver:availability:rate30d)
+              /
+              0.001
+            )
+
+        # --- Grafana (tier 2, SLO 99.5%) ---
+        - record: helix:grafana:error_ratio:rate1h
+          expr: |
+            sum(rate(grafana_http_requests_total{statuscode=~"5.."}[1h]))
+            /
+            clamp_min(sum(rate(grafana_http_requests_total[1h])), 1)
+
+        - record: helix:grafana:availability:rate30d
+          expr: |
+            1 - (
+              sum(rate(grafana_http_requests_total{statuscode=~"5.."}[30d]))
+              /
+              clamp_min(sum(rate(grafana_http_requests_total[30d])), 1)
+            )
+
+        - record: helix:grafana:error_budget_remaining
+          expr: |
+            1 - (
+              (1 - helix:grafana:availability:rate30d)
+              /
+              0.005
+            )
+
+        # --- PostgreSQL (CNPG, tier 2, SLO 99.5%) ---
+        # cnpg_collector_up is 0 or 1 — availability SLI
+        - record: helix:postgresql:availability:rate1h
+          expr: avg_over_time(cnpg_collector_up[1h])
+
+        - record: helix:postgresql:availability:rate30d
+          expr: avg_over_time(cnpg_collector_up[30d])
+
+        - record: helix:postgresql:error_budget_remaining
+          expr: |
+            1 - (
+              (1 - helix:postgresql:availability:rate30d)
+              /
+              0.005
+            )
+
+        # --- ArgoCD sync success ratio (7-day, SLO >95%) ---
+        - record: helix:argocd:sync_error_ratio:rate7d
+          expr: |
+            1 - (
+              sum(increase(argocd_app_sync_total{phase="Succeeded"}[7d]))
+              /
+              clamp_min(sum(increase(argocd_app_sync_total[7d])), 1)
+            )
+
+        # --- Node capacity recording rules ---
+        - record: helix:node:cpu_utilization:rate5m
+          expr: |
+            1 - (
+              avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))
+              /
+              avg by (instance) (rate(node_cpu_seconds_total[5m]))
+            )
+
+        - record: helix:node:memory_available_ratio
+          expr: |
+            node_memory_MemAvailable_bytes
+            /
+            node_memory_MemTotal_bytes
+
+        - record: helix:node:disk_available_ratio
+          expr: |
+            node_filesystem_avail_bytes{mountpoint="/"}
+            /
+            node_filesystem_size_bytes{mountpoint="/"}
+
+    # -------------------------------------------------------------------------
+    # Alert rules — multi-window burn rate for SLO breach detection
+    # Based on Google SRE Workbook multi-burn-rate approach
+    # -------------------------------------------------------------------------
+    - name: helix_stax_slo_alerts
+      rules:
+
+        # === Traefik SLO Burn Rate (ingress, SLO 99.9%, error_budget=0.001) ===
+
+        - alert: TraefikSLOFastBurn
+          expr: |
+            (helix:traefik:error_ratio:rate1h > (14.4 * 0.001))
+            and
+            (helix:traefik:error_ratio:rate5m > (14.4 * 0.001))
+          for: 2m
+          labels:
+            severity: critical
+            team: platform
+            service: traefik
+            slo: availability
+          annotations:
+            summary: "Traefik: Fast SLO burn — 30-day budget exhausts in ~2 days"
+            description: |
+              Error ratio over 1h: {{ $value | humanizePercentage }}
+              Burn rate: >14.4x (SLO budget will exhaust in ~2 days at this rate)
+              SLO target: 99.9% availability
+            runbook_url: "https://docs.helixstax.net/runbooks/traefik-slo-breach"
+
+        - alert: TraefikSLOMediumBurn
+          expr: |
+            (helix:traefik:error_ratio:rate6h > (6 * 0.001))
+            and
+            (helix:traefik:error_ratio:rate30m > (6 * 0.001))
+          for: 15m
+          labels:
+            severity: warning
+            team: platform
+            service: traefik
+            slo: availability
+          annotations:
+            summary: "Traefik: Medium SLO burn — budget exhausts in ~5 days"
+            description: |
+              Error ratio over 6h: {{ $value | humanizePercentage }}
+              Burn rate: >6x
+            runbook_url: "https://docs.helixstax.net/runbooks/traefik-slo-breach"
+
+        - alert: TraefikSLOSlowBurn
+          expr: |
+            (helix:traefik:error_ratio:rate1d > (3 * 0.001))
+            and
+            (helix:traefik:error_ratio:rate2h > (3 * 0.001))
+          for: 1h
+          labels:
+            severity: info
+            team: platform
+            service: traefik
+            slo: availability
+          annotations:
+            summary: "Traefik: Slow SLO burn — budget eroding, no immediate outage"
+            description: |
+              Error ratio over 1d: {{ $value | humanizePercentage }}
+              Burn rate: >3x
+
+        # === Zitadel SLO Burn Rate (identity, SLO 99.9%, error_budget=0.001) ===
+
+        - alert: ZitadelSLOFastBurn
+          expr: |
+            (helix:zitadel:error_ratio:rate1h > (14.4 * 0.001))
+            and
+            (helix:zitadel:error_ratio:rate5m > (14.4 * 0.001))
+          for: 2m
+          labels:
+            severity: critical
+            team: platform
+            service: zitadel
+            slo: availability
+          annotations:
+            summary: "Zitadel: Fast SLO burn — auth service degraded"
+            description: |
+              Error ratio over 1h: {{ $value | humanizePercentage }}
+              Burn rate: >14.4x
+            runbook_url: "https://docs.helixstax.net/runbooks/zitadel-slo-breach"
+
+        - alert: ZitadelSLOMediumBurn
+          expr: |
+            (helix:zitadel:error_ratio:rate6h > (6 * 0.001))
+            and
+            (helix:zitadel:error_ratio:rate30m > (6 * 0.001))
+          for: 15m
+          labels:
+            severity: warning
+            team: platform
+            service: zitadel
+            slo: availability
+          annotations:
+            summary: "Zitadel: Medium SLO burn — auth error rate elevated"
+            description: |
+              Error ratio over 6h: {{ $value | humanizePercentage }}
+
+        # === Kubernetes API Server SLO (tier 1, SLO 99.9%) ===
+
+        - alert: KubeAPIServerSLOFastBurn
+          expr: |
+            (helix:apiserver:error_ratio:rate1h > (14.4 * 0.001))
+            and
+            (helix:apiserver:error_ratio:rate5m > (14.4 * 0.001))
+          for: 2m
+          labels:
+            severity: critical
+            team: platform
+            service: kubernetes-apiserver
+            slo: availability
+          annotations:
+            summary: "K8s API Server: Fast SLO burn — control plane at risk"
+            description: |
+              Error ratio over 1h: {{ $value | humanizePercentage }}
+              Burn rate: >14.4x
+
+        - alert: KubeAPIServerSLOMediumBurn
+          expr: |
+            (helix:apiserver:error_ratio:rate6h > (6 * 0.001))
+            and
+            (helix:apiserver:error_ratio:rate30m > (6 * 0.001))
+          for: 15m
+          labels:
+            severity: warning
+            team: platform
+            service: kubernetes-apiserver
+            slo: availability
+          annotations:
+            summary: "K8s API Server: Medium SLO burn"
+            description: |
+              Error ratio over 6h: {{ $value | humanizePercentage }}
+
+        # === PostgreSQL SLO Alerts ===
+
+        - alert: PostgreSQLUnavailable
+          expr: cnpg_collector_up == 0
+          for: 2m
+          labels:
+            severity: critical
+            team: platform
+            service: postgresql
+            slo: availability
+          annotations:
+            summary: "PostgreSQL instance down: {{ $labels.pod }}"
+            description: "CNPG collector reports the PostgreSQL instance is unreachable"
+            runbook_url: "https://docs.helixstax.net/runbooks/postgresql-unavailable"
+
+        - alert: PostgreSQLReplicationLagHigh
+          expr: cnpg_pg_replication_lag > 30
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+            service: postgresql
+          annotations:
+            summary: "PostgreSQL replication lag > 30s on {{ $labels.pod }}"
+            description: "Replication lag: {{ $value }}s"
+
+        - alert: PostgreSQLBackupStale
+          expr: |
+            (time() - cnpg_collector_last_available_backup_timestamp) / 3600 > 25
+          for: 0m
+          labels:
+            severity: warning
+            team: platform
+            service: postgresql
+          annotations:
+            summary: "PostgreSQL last backup is over 25 hours old"
+            description: "Hours since last backup: {{ $value | humanize }}"
+
+        # === Node Capacity SLO Alerts ===
+
+        - alert: NodeCPUCapacitySLOBreach
+          expr: helix:node:cpu_utilization:rate5m > 0.80
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+            service: node
+          annotations:
+            summary: "Node {{ $labels.instance }}: CPU > 80% for 10 minutes"
+            description: "Current CPU utilization: {{ $value | humanizePercentage }}"
+
+        - alert: NodeMemoryCapacitySLOBreach
+          expr: helix:node:memory_available_ratio < 0.20
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+            service: node
+          annotations:
+            summary: "Node {{ $labels.instance }}: Memory available < 20%"
+            description: "Memory available: {{ $value | humanizePercentage }}"
+
+        - alert: NodeDiskCapacitySLOBreach
+          expr: helix:node:disk_available_ratio < 0.10
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+            service: node
+          annotations:
+            summary: "Node {{ $labels.instance }}: Root disk < 10% free"
+            description: "Disk available: {{ $value | humanizePercentage }}"
+
+        # === ArgoCD Sync SLO Alerts ===
+
+        - alert: ArgoCDSyncSuccessRateLow
+          expr: helix:argocd:sync_error_ratio:rate7d > 0.05
+          for: 30m
+          labels:
+            severity: warning
+            team: platform
+            service: argocd
+          annotations:
+            summary: "ArgoCD: Sync success rate below 95% over 7 days"
+            description: "Sync failure ratio: {{ $value | humanizePercentage }}"
+
+        - alert: ArgoCDAppOutOfSync
+          expr: |
+            sum(argocd_app_info{sync_status!="Synced"})
+            /
+            clamp_min(sum(argocd_app_info), 1)
+            > 0.10
+          for: 15m
+          labels:
+            severity: warning
+            team: platform
+            service: argocd
+          annotations:
+            summary: "ArgoCD: More than 10% of applications out of sync"
+            description: "Out-of-sync ratio: {{ $value | humanizePercentage }}"

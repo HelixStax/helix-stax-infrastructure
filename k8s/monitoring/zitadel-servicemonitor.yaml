@@ -1,0 +1,28 @@
+---
+# Zitadel ServiceMonitor — Prometheus scraping for identity metrics
+# Zitadel exposes Prometheus metrics at /debug/metrics on port 8080
+# This unlocks: http_server_request_count_total, http_server_return_code_counter_total,
+#               http_server_request_duration_seconds for HIPAA/Compliance dashboards.
+#
+# Required label: release: monitoring — used by kube-prometheus-stack PodMonitor selector
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: zitadel
+  namespace: identity
+  labels:
+    app.kubernetes.io/name: zitadel
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zitadel
+      app.kubernetes.io/instance: zitadel
+  namespaceSelector:
+    matchNames:
+      - identity
+  endpoints:
+    - port: http2-server
+      path: /debug/metrics
+      interval: 30s
+      scrapeTimeout: 10s

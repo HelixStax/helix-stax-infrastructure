@@ -1,0 +1,76 @@
+# Grafana Community Dashboard ConfigMaps — Helix Stax
+#
+# These ConfigMaps store community dashboard JSON files and are provisioned
+# into Grafana automatically by the grafana-sc-dashboard sidecar container.
+#
+# How it works:
+#   - kube-prometheus-stack deploys a k8s-sidecar container that watches
+#     ConfigMaps with label grafana_dashboard=1 across all namespaces.
+#   - The grafana_folder annotation routes the dashboard to the correct folder.
+#   - FOLDER_ANNOTATION=grafana_folder must be set in the sidecar (configured
+#     via values-prometheus-stack.yaml grafana.sidecar.dashboards.folderAnnotation).
+#
+# This approach survives Grafana pod restarts (persistence=false) because
+# the dashboards are loaded from ConfigMaps on startup.
+#
+# To add a new community dashboard:
+#   1. Download JSON from https://grafana.com/grafana/dashboards/<ID>
+#   2. Add a ConfigMap section below
+#   3. kubectl apply -f grafana-community-dashboards.yaml
+#
+# NOTE: Dashboard JSON is stored in a separate secret/configmap referenced
+# via --from-file on the cluster. The dashboard JSON files are NOT inlined
+# here due to size (100KB-500KB each). They are created on the cluster via:
+#
+#   python3 /tmp/create-dashboard-configmaps.py
+#
+# See scripts/grafana-dashboard-setup.sh for the bootstrap script.
+#
+# Applied dashboards (as of 2026-03-26):
+#   ConfigMap-provisioned (survive pod restarts):
+#
+#   Infrastructure folder:
+#   - helix-stax-node-exporter-full      (ID: 1860)  -> Node Exporter Full
+#   - helix-stax-loki-dashboard          (ID: 13407) -> Loki2.0 Global Metrics
+#
+#   Networking folder:
+#   - helix-stax-traefik-dashboard       (ID: 17346) -> Traefik Official Standalone
+#
+#   Database folder:
+#   - helix-stax-cloudnativepg-dashboard (ID: 20417) -> CloudNativePG
+#   - helix-stax-valkey-dashboard        (ID: 763)   -> Redis/Valkey (ready for when Valkey deploys)
+#   - helix-stax-minio-dashboard         (ID: 13502) -> MinIO Dashboard
+#
+#   CI-CD folder:
+#   - helix-stax-argocd-dashboard        (ID: 14584) -> ArgoCD
+#   - helix-stax-argocd-app-overview     (ID: 19974) -> ArgoCD App Overview
+#
+#   Identity folder (Grafana folder exists, dashboards pending):
+#   - Zitadel: No community dashboard available. Zitadel exposes Prometheus metrics at
+#     /debug/metrics. Custom dashboard needed — future work item.
+#
+#   Networking notes:
+#   - Flannel/WireGuard: No suitable community dashboard found. Flannel (ID 12561) is
+#     unrelated; WireGuard (ID 14953) is for MongoDB Atlas. WireGuard metrics are not
+#     exposed by default in flannel-wg mode — would require custom exporter.
+#
+#   CrowdSec notes:
+#   - No official CrowdSec dashboard on grafana.com community site.
+#   - CrowdSec exposes Prometheus metrics at localhost:6060/metrics on each node.
+#     Requires a ServiceMonitor pointing to hostNetwork port 6060 AND a custom dashboard.
+#     Future work: add ServiceMonitor + custom dashboard JSON.
+#
+#   REMOVED dashboards (DO NOT RE-ADD via bootstrap script):
+#   - helix-stax-postgresql-dashboard   (ID: 9628, uid: 000000039)
+#     Reason: Redundant — CloudNativePG dashboard (20417) covers PostgreSQL monitoring.
+#             Dashboard was RED (conflicting/broken panels). CNPG dashboard is the correct one.
+#   - monitoring-kube-prometheus-nodes-aix    (kube-prometheus-stack built-in)
+#   - monitoring-kube-prometheus-nodes-darwin (kube-prometheus-stack built-in)
+#     Reason: Not applicable — cluster runs AlmaLinux 9.7 on x86_64, no AIX or macOS nodes.
+#
+#   API-imported (ephemeral — wiped on pod restart, re-import if needed):
+#   - Kubernetes / Views / Pods         (ID: 15760) -> Infrastructure
+#   - kubernetes-persistent-volumes     (ID: 13646) -> Infrastructure
+#
+#   Note: Dashboard 20485 is NOT CNPG — it's a Zabbix/Downdetector dashboard.
+#   The correct CNPG dashboard is 20417 (helix-stax-cloudnativepg-dashboard).

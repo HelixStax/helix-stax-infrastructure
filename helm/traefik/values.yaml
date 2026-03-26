@@ -1,0 +1,41 @@
+# Traefik Helm values for Helix Stax
+# Chart: traefik/traefik
+# Upgrade: KUBECONFIG=/etc/rancher/k3s/k3s.yaml sudo -E /usr/local/bin/helm upgrade traefik traefik/traefik \
+#            -n traefik -f values.yaml
+
+ingressRoute:
+  dashboard:
+    enabled: false
+
+logs:
+  access:
+    enabled: true
+  general:
+    level: INFO
+
+providers:
+  kubernetesCRD:
+    allowCrossNamespace: true
+
+service:
+  type: ClusterIP
+
+# --- Prometheus metrics ---
+# Enables /metrics endpoint on the dedicated metrics entrypoint (port 9100)
+# and creates a ServiceMonitor so Prometheus scrapes it.
+metrics:
+  prometheus:
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+    # Expose metrics port as a K8s Service so Prometheus can scrape it
+    service:
+      enabled: true
+    # ServiceMonitor for kube-prometheus-stack autodiscovery
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        # Must match kube-prometheus-stack serviceMonitorSelector
+        release: monitoring
+      interval: 30s
+      namespace: traefik

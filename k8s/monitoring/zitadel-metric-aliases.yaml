@@ -1,0 +1,49 @@
+---
+# Zitadel Metric Name Aliases
+# Prometheus v3 stores OpenMetrics dot-notation names natively (http.server.*)
+# but our dashboards query the traditional underscore form (http_server_*).
+# These recording rules bridge the gap by aliasing dot-notation to underscore names.
+#
+# Source metrics (from Zitadel /debug/metrics, stored with UTF-8 dot notation):
+#   http.server.request_count_total         -> http_server_request_count_total
+#   http.server.return_code_counter_total   -> http_server_return_code_counter_total
+#   http.server.request.duration_seconds_*  -> http_server_request_duration_seconds_*
+#
+# Labels preserved: job, namespace, pod, instance, method, uri, code
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: zitadel-metric-aliases
+  namespace: monitoring
+  labels:
+    app: kube-prometheus-stack
+    release: monitoring
+spec:
+  groups:
+    - name: zitadel.metric.aliases
+      interval: 15s
+      rules:
+        # Request count — aliased from dot to underscore name
+        - record: http_server_request_count_total
+          expr: |
+            {__name__="http.server.request_count_total", job="zitadel"}
+
+        # Return code counter — aliased from dot to underscore name
+        - record: http_server_return_code_counter_total
+          expr: |
+            {__name__="http.server.return_code_counter_total", job="zitadel"}
+
+        # Request duration histogram bucket — aliased
+        - record: http_server_request_duration_seconds_bucket
+          expr: |
+            {__name__="http.server.request.duration_seconds_bucket", job="zitadel"}
+
+        # Request duration histogram count — aliased
+        - record: http_server_request_duration_seconds_count
+          expr: |
+            {__name__="http.server.request.duration_seconds_count", job="zitadel"}
+
+        # Request duration histogram sum — aliased
+        - record: http_server_request_duration_seconds_sum
+          expr: |
+            {__name__="http.server.request.duration_seconds_sum", job="zitadel"}
