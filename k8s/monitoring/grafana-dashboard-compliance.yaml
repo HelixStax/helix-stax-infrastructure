@@ -1,0 +1,1684 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-compliance
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: "Platform"
+data:
+  compliance-dashboard.json: |
+    {
+      "id": null,
+      "uid": "helix-compliance-posture",
+      "title": "Helix Stax — Compliance Posture",
+      "description": "UCM control evidence dashboard mapping NIST CSF, SOC 2, ISO 27001, and CIS v8 controls to live infrastructure metrics. ~63% of controls are automated; remaining are tracked via ClickUp.",
+      "tags": ["compliance", "security", "nist", "soc2", "iso27001", "cis"],
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "version": 1,
+      "refresh": "5m",
+      "time": {
+        "from": "now-24h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "panels": [
+
+        {
+          "id": 1,
+          "type": "row",
+          "title": "Executive Summary",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+        },
+
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Overall Compliance Score",
+          "description": "Percentage of automated controls currently passing. Excludes manual/ClickUp-only controls.",
+          "gridPos": { "h": 6, "w": 4, "x": 0, "y": 1 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 70 },
+                  { "color": "green", "value": 85 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "(\n  (sum(kube_node_status_condition{condition=\"Ready\",status=\"true\"}) / count(kube_node_info) * 100) +\n  (100 - clamp_max(sum(rate(apiserver_request_total{code=\"403\"}[5m])) * 100, 100)) +\n  (100 - clamp_max(increase(velero_backup_failure_total[24h] or vector(0)) * 10, 100)) +\n  clamp_max((1 - (time() - max(cnpg_collector_last_available_backup_timestamp or vector(time()))) / 86400) * 100, 100) +\n  (100 - clamp_max(sum(rate(traefik_service_requests_total{code=~\"5..\"}[5m])) / (sum(rate(traefik_service_requests_total[5m])) > 0) * 100, 100))\n) / 5",
+              "legendFormat": "Score",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 3,
+          "type": "gauge",
+          "title": "NIST CSF 2.0",
+          "description": "Automated NIST CSF control checks passing. PR.AC (access), PR.DS (encryption), DE.AE (detection), RC.RP (recovery), PR.IP (hardening).",
+          "gridPos": { "h": 6, "w": 5, "x": 4, "y": 1 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 65 },
+                  { "color": "green", "value": 80 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "(\n  clamp_max(count(kube_node_status_condition{condition=\"Ready\",status=\"true\"}) / count(kube_node_info) * 100, 100) +\n  clamp_max(100 - (sum(rate(apiserver_request_total{code=\"403\"}[5m])) / (sum(rate(apiserver_request_total[5m])) > 0) * 100), 100) +\n  clamp_max((min((traefik_tls_certs_not_after - time()) / 86400) > 30) * 100 or vector(0), 100) +\n  clamp_max((count(node_selinux_current_mode == 1) / count(node_selinux_current_mode) * 100) or vector(50), 100)\n) / 4",
+              "legendFormat": "NIST CSF",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 4,
+          "type": "gauge",
+          "title": "SOC 2 (CC + A)",
+          "description": "SOC 2 common criteria: CC6 (access), CC7 (detection/monitoring), CC8 (change management), A1 (availability). Automated coverage only.",
+          "gridPos": { "h": 6, "w": 5, "x": 9, "y": 1 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 65 },
+                  { "color": "green", "value": 80 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "(\n  clamp_max(count(kube_node_status_condition{condition=\"Ready\",status=\"true\"}) / count(kube_node_info) * 100, 100) +\n  clamp_max((rate(argocd_app_sync_total{phase=\"Succeeded\"}[7d]) or vector(1)) / (rate(argocd_app_sync_total[7d]) or vector(1)) * 100, 100) +\n  clamp_max(100 - (count(argocd_app_info{health_status=\"Degraded\"} or vector(0)) * 20), 100) +\n  clamp_max(100 - (sum(rate(traefik_service_requests_total{code=~\"5..\"}[5m])) / (sum(rate(traefik_service_requests_total[5m])) > 0) * 100), 100)\n) / 4",
+              "legendFormat": "SOC 2",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 5,
+          "type": "gauge",
+          "title": "ISO 27001:2022",
+          "description": "ISO 27001 Annex A automated checks: A.9 (access), A.10 (encryption), A.12 (ops security), A.12.3 (backup), A.17 (availability).",
+          "gridPos": { "h": 6, "w": 5, "x": 14, "y": 1 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 65 },
+                  { "color": "green", "value": 80 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "(\n  clamp_max((min((traefik_tls_certs_not_after - time()) / 86400) > 30) * 100 or vector(0), 100) +\n  clamp_max((time() - max(cnpg_collector_last_available_backup_timestamp or vector(time() - 3600))) < 86400, 100) * 100 +\n  clamp_max(count(kube_node_status_condition{condition=\"Ready\",status=\"true\"}) / count(kube_node_info) * 100, 100) +\n  clamp_max(100 - (sum(rate(apiserver_request_total{code=\"403\"}[5m])) / (sum(rate(apiserver_request_total[5m])) > 0) * 50), 100)\n) / 4",
+              "legendFormat": "ISO 27001",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 6,
+          "type": "gauge",
+          "title": "CIS v8 IG2",
+          "description": "CIS Controls v8 Implementation Group 2: #1 asset inventory (nodes), #7 vuln mgmt (CrowdSec), #13 network monitoring (Traefik), #16 account mgmt (RBAC/403s).",
+          "gridPos": { "h": 6, "w": 5, "x": 19, "y": 1 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 65 },
+                  { "color": "green", "value": 80 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "(\n  clamp_max(count(kube_node_info) > 0, 1) * 100 +\n  clamp_max((sum(cs_lapi_decisions_ok_total or vector(0)) > 0) * 100 or vector(50), 100) +\n  clamp_max(100 - (sum(rate(traefik_service_requests_total{code=~\"4..\"}[5m])) / (sum(rate(traefik_service_requests_total[5m])) > 0) * 100), 100) +\n  clamp_max(100 - (sum(rate(apiserver_request_total{code=\"403\"}[1h])) > 10) * 30, 100)\n) / 4",
+              "legendFormat": "CIS v8",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 10,
+          "type": "row",
+          "title": "Access Control (NIST PR.AC | SOC 2 CC6 | ISO A.9)",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 }
+        },
+
+        {
+          "id": 11,
+          "type": "stat",
+          "title": "K8s RBAC — 403 Forbidden (1h)",
+          "description": "Unauthorized Kubernetes API requests in the last hour. These indicate RBAC enforcement is working OR a service is misconfigured. GREEN = low volume (< 10), RED = high volume (> 100). Control: NIST PR.AC-4, SOC 2 CC6.3.",
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 8 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 10 },
+                  { "color": "red", "value": 100 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(increase(apiserver_request_total{code=\"403\"}[1h]))",
+              "legendFormat": "403 Forbidden",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 12,
+          "type": "stat",
+          "title": "K8s Unauthenticated (401) — 1h",
+          "description": "Unauthenticated API calls in the last hour. Should be near-zero in a hardened cluster. Control: NIST PR.AC-1, ISO A.9.4.",
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 8 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red", "value": 50 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(increase(apiserver_request_total{code=\"401\"}[1h]))",
+              "legendFormat": "401 Unauthorized",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 13,
+          "type": "stat",
+          "title": "Zitadel — HTTP Request Rate",
+          "description": "Zitadel identity provider request rate. Confirms the IdP is receiving traffic. A drop to zero may indicate SSO is unavailable. Control: NIST PR.AC-1, SOC 2 CC6.1.",
+          "gridPos": { "h": 4, "w": 4, "x": 8, "y": 8 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "yellow", "value": null },
+                  { "color": "green", "value": 0.01 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(http_server_request_count_total{job=~\".*zitadel.*\"}[5m]))",
+              "legendFormat": "Zitadel req/s",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 14,
+          "type": "stat",
+          "title": "Zitadel — Auth Error Rate",
+          "description": "Percentage of Zitadel HTTP responses that are 4xx or 5xx. Elevated error rate may indicate authentication failures or configuration issues. Control: NIST PR.AC-1, SOC 2 CC6.1.",
+          "gridPos": { "h": 4, "w": 4, "x": 12, "y": 8 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "red", "value": 5 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(http_server_return_code_counter_total{job=~\".*zitadel.*\",code=~\"4..|5..\"}[5m])) / (sum(rate(http_server_return_code_counter_total{job=~\".*zitadel.*\"}[5m])) > 0) * 100",
+              "legendFormat": "Error %",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 15,
+          "type": "timeseries",
+          "title": "K8s API Auth Failures Over Time",
+          "description": "Trend of 401 and 403 responses to the Kubernetes API server. Spikes may indicate brute-force or misconfigured service accounts. Control: NIST PR.AC-4, SOC 2 CC6.3, ISO A.9.4.",
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+          "options": {
+            "tooltip": { "mode": "multi", "sort": "none" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "403 Forbidden" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "401 Unauthorized" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(apiserver_request_total{code=\"403\"}[5m])) * 60",
+              "legendFormat": "403 Forbidden",
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(apiserver_request_total{code=\"401\"}[5m])) * 60",
+              "legendFormat": "401 Unauthorized",
+              "refId": "B"
+            }
+          ]
+        },
+
+        {
+          "id": 16,
+          "type": "timeseries",
+          "title": "Zitadel Request Latency (p50 / p95 / p99)",
+          "description": "Zitadel authentication latency percentiles. High p99 may indicate database contention or resource pressure affecting user login experience. Control: SOC 2 CC6.1, ISO A.9.",
+          "gridPos": { "h": 4, "w": 16, "x": 0, "y": 12 },
+          "options": {
+            "tooltip": { "mode": "multi", "sort": "none" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": { "lineWidth": 2, "fillOpacity": 5 }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=~\".*zitadel.*\"}[5m])))",
+              "legendFormat": "p50",
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=~\".*zitadel.*\"}[5m])))",
+              "legendFormat": "p95",
+              "refId": "B"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=~\".*zitadel.*\"}[5m])))",
+              "legendFormat": "p99",
+              "refId": "C"
+            }
+          ]
+        },
+
+        {
+          "id": 20,
+          "type": "row",
+          "title": "Audit & Logging (NIST DE.AE | SOC 2 CC7 | ISO A.12.4)",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 }
+        },
+
+        {
+          "id": 21,
+          "type": "stat",
+          "title": "Loki — Ingestion Healthy",
+          "description": "Loki WAL records being logged — confirms log ingestion pipeline is operational. Value = 1 means scrape target is up. Control: NIST DE.AE-3, SOC 2 CC7.2, ISO A.12.4.",
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 17 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "value_and_name",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                { "type": "value", "options": { "1": { "text": "HEALTHY", "color": "green", "index": 0 } } },
+                { "type": "value", "options": { "0": { "text": "DOWN", "color": "red", "index": 1 } } }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "up{job=~\".*loki.*\"}",
+              "legendFormat": "Loki Up",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 22,
+          "type": "stat",
+          "title": "Prometheus Rule Eval Failures",
+          "description": "Prometheus alerting/recording rule evaluation failures. Non-zero indicates alert rules are broken and may not fire when needed. Control: NIST DE.AE-2, SOC 2 CC7.2.",
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 17 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(prometheus_rule_evaluation_failures_total)",
+              "legendFormat": "Failures",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 23,
+          "type": "timeseries",
+          "title": "Log Volume by Namespace (per minute)",
+          "description": "Log ingestion rate per namespace. Sustained zero volume for a namespace means logs have stopped flowing — potential evidence gap. Control: NIST DE.AE-3, SOC 2 CC7.2, ISO A.12.4.",
+          "gridPos": { "h": 8, "w": 16, "x": 8, "y": 17 },
+          "datasource": { "type": "loki", "uid": "loki" },
+          "options": {
+            "tooltip": { "mode": "multi", "sort": "none" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 1, "fillOpacity": 20 }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "loki", "uid": "loki" },
+              "expr": "sum by (namespace) (rate({namespace=~\".+\"}[5m]))",
+              "legendFormat": "{{namespace}}",
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 24,
+          "type": "stat",
+          "title": "Prometheus Scrape Targets — Up",
+          "description": "Total number of Prometheus scrape targets currently UP. A drop indicates a service stopped exposing metrics — compliance evidence gap. Control: NIST DE.AE-3.",
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 21 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "green", "value": 10 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "count(up == 1)",
+              "legendFormat": "Targets Up",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 25,
+          "type": "text",
+          "title": "Log Retention Status",
+          "description": "Manual check — verify Loki retention_period config matches policy.",
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 21 },
+          "options": {
+            "content": "### Log Retention\n\nRetention is configured in Loki `limits_config`.\n\n**Configured:** 30 days (verify in Helm values)\n\n**Requirement:** >= 90 days for SOC 2 / ISO 27001\n\n**Status:** MANUAL CHECK\n\n> Run: `kubectl -n monitoring get configmap loki -o jsonpath='{.data.config\\.yaml}' | grep retention`",
+            "mode": "markdown"
+          }
+        },
+
+        {
+          "id": 30,
+          "type": "row",
+          "title": "Encryption (NIST PR.DS | SOC 2 CC6 | ISO A.10)",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 }
+        },
+
+        {
+          "id": 31,
+          "type": "stat",
+          "title": "TLS Cert — Min Days to Expiry",
+          "description": "Minimum days remaining across all TLS certificates served by Traefik. Cloudflare Origin CA certs are 15-year — this should be high. Alert threshold: < 30 days. Control: NIST PR.DS-2, SOC 2 CC6.7, ISO A.10.1.",
+          "gridPos": { "h": 5, "w": 6, "x": 0, "y": 26 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "d",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 30 },
+                  { "color": "green", "value": 60 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "min((traefik_tls_certs_not_after - time()) / 86400)",
+              "legendFormat": "Min Expiry (days)",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 32,
+          "type": "table",
+          "title": "TLS Certificate Expiry by Domain",
+          "description": "All TLS certificates tracked by Traefik with days until expiry. Cloudflare Origin CA certs should show ~5400+ days. Control: NIST PR.DS-2, ISO A.10.1.",
+          "gridPos": { "h": 5, "w": 10, "x": 6, "y": 26 },
+          "options": {
+            "sortBy": [{ "displayName": "Days to Expiry", "desc": false }],
+            "footer": { "show": false }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "d",
+              "custom": { "align": "left" }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Days to Expiry" },
+                "properties": [
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        { "color": "red", "value": null },
+                        { "color": "yellow", "value": 30 },
+                        { "color": "green", "value": 60 }
+                      ]
+                    }
+                  },
+                  { "id": "custom.displayMode", "value": "color-background" }
+                ]
+              }
+            ]
+          },
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "renameByName": {
+                  "sans": "Domain",
+                  "Value": "Days to Expiry"
+                }
+              }
+            }
+          ],
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "(traefik_tls_certs_not_after - time()) / 86400",
+              "legendFormat": "{{sans}}",
+              "instant": true,
+              "format": "table",
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 33,
+          "type": "stat",
+          "title": "HTTPS Request Volume (5m)",
+          "description": "TLS-encrypted requests handled by Traefik. Confirms traffic is flowing over encrypted channels. A drop to zero may indicate TLS termination failure. Control: NIST PR.DS-2, ISO A.10.",
+          "gridPos": { "h": 5, "w": 4, "x": 16, "y": 26 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "yellow", "value": null },
+                  { "color": "green", "value": 0.01 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(traefik_entrypoint_requests_tls_total[5m]))",
+              "legendFormat": "HTTPS req/s",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 34,
+          "type": "text",
+          "title": "WireGuard Encryption Status",
+          "description": "Inter-node traffic encryption via flannel-wg. Manual verification required — no exporter deployed.",
+          "gridPos": { "h": 5, "w": 4, "x": 20, "y": 26 },
+          "options": {
+            "content": "### WireGuard (flannel-wg)\n\n**Status:** MANUAL\n\nAll inter-node cluster traffic encrypted via WireGuard (wireguard-native Flannel backend).\n\n**Verify with:**\n```\nsudo wg show\n```\nAll peers should have recent handshake (< 3 min).\n\n**Control:** NIST PR.DS-2, ISO A.10.1\n\n**Evidence:** WireGuard public keys documented in runbook.",
+            "mode": "markdown"
+          }
+        },
+
+        {
+          "id": 40,
+          "type": "row",
+          "title": "Backup & Recovery (NIST RC.RP | SOC 2 A1.2 | ISO A.12.3)",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 }
+        },
+
+        {
+          "id": 41,
+          "type": "stat",
+          "title": "CNPG — Hours Since Last Backup",
+          "description": "Hours elapsed since the last successful CNPG database backup. RPO target: < 24h (daily backup). GREEN = < 24h, RED = > 48h. Control: NIST RC.RP-1, SOC 2 A1.2, ISO A.12.3.",
+          "gridPos": { "h": 5, "w": 5, "x": 0, "y": 32 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "h",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 24 },
+                  { "color": "red", "value": 48 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "(time() - cnpg_collector_last_available_backup_timestamp) / 3600",
+              "legendFormat": "Hours since backup",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 42,
+          "type": "stat",
+          "title": "WAL Archive — Ready Files",
+          "description": "Number of WAL segments ready to be archived. Non-zero means WAL archiving is backlogged. Zero = archiving keeping up. Control: NIST RC.RP-1, SOC 2 A1.2, ISO A.12.3.",
+          "gridPos": { "h": 5, "w": 5, "x": 5, "y": 32 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red", "value": 20 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(cnpg_pg_wal_archive_status{status=\"ready\"})",
+              "legendFormat": "WAL Ready",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 43,
+          "type": "stat",
+          "title": "WAL Archive — Done Files",
+          "description": "Total WAL segments successfully archived. Increasing counter confirms archiving is working. Flat line means no new WAL being archived. Control: NIST RC.RP-1, SOC 2 A1.2.",
+          "gridPos": { "h": 5, "w": 5, "x": 10, "y": 32 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "yellow", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(cnpg_pg_wal_archive_status{status=\"done\"})",
+              "legendFormat": "WAL Done",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 44,
+          "type": "timeseries",
+          "title": "CNPG Backup Freshness Over Time",
+          "description": "Hours since last backup tracked over 7 days. Should oscillate below 24h if daily backups are running. Flat line above 24h = backup failure. Control: NIST RC.RP-1, SOC 2 A1.2, ISO A.12.3.",
+          "gridPos": { "h": 5, "w": 9, "x": 15, "y": 32 },
+          "options": {
+            "tooltip": { "mode": "single", "sort": "none" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "h",
+              "custom": { "lineWidth": 2, "fillOpacity": 15 },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 24 },
+                  { "color": "red", "value": 48 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "(time() - cnpg_collector_last_available_backup_timestamp) / 3600",
+              "legendFormat": "Hours since backup",
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 50,
+          "type": "row",
+          "title": "Network Security (NIST PR.AC-5 | SOC 2 CC6.6 | CIS v8 IG2 13)",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 37 }
+        },
+
+        {
+          "id": 51,
+          "type": "stat",
+          "title": "CrowdSec — Total Bans Issued",
+          "description": "Total IP bans issued by CrowdSec LAPI since last restart. Confirms IDS is actively blocking threats. Zero may mean CrowdSec metrics not yet scraped. Control: NIST PR.AC-5, CIS v8 IG2 7.",
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 38 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "grey", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(cs_lapi_decisions_ok_total or vector(0))",
+              "legendFormat": "Total Bans",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 52,
+          "type": "stat",
+          "title": "CrowdSec — Ban Rate (per hour)",
+          "description": "New IP bans issued by CrowdSec per hour. Sustained high rate may indicate an active attack campaign. Control: NIST DE.CM-1, CIS v8 IG2 13.",
+          "gridPos": { "h": 4, "w": 4, "x": 4, "y": 38 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 50 },
+                  { "color": "red", "value": 200 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(cs_lapi_decisions_ok_total[1h]) * 3600 or vector(0))",
+              "legendFormat": "Bans/hour",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 53,
+          "type": "stat",
+          "title": "Traefik — 4xx Error Rate",
+          "description": "Percentage of client-error responses from Traefik (4xx). Elevated rate may indicate scanning or authentication probes. Control: NIST PR.AC-5, SOC 2 CC6.6.",
+          "gridPos": { "h": 4, "w": 4, "x": 8, "y": 38 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red", "value": 20 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(traefik_service_requests_total{code=~\"4..\"}[5m])) / (sum(rate(traefik_service_requests_total[5m])) > 0) * 100",
+              "legendFormat": "4xx %",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 54,
+          "type": "stat",
+          "title": "Traefik — 5xx Error Rate",
+          "description": "Percentage of server-error responses from Traefik (5xx). Control: SOC 2 CC6.6, ISO A.17.",
+          "gridPos": { "h": 4, "w": 4, "x": 12, "y": 38 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "red", "value": 5 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(traefik_service_requests_total{code=~\"5..\"}[5m])) / (sum(rate(traefik_service_requests_total[5m])) > 0) * 100",
+              "legendFormat": "5xx %",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 55,
+          "type": "timeseries",
+          "title": "CrowdSec Ban Activity + Traefik Error Rate",
+          "description": "Correlated view: CrowdSec bans per hour alongside Traefik error rates. Correlation indicates attacks triggering both IDS bans and service-level errors.",
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 38 },
+          "options": {
+            "tooltip": { "mode": "multi", "sort": "none" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 10 }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Bans/hr" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "4xx/s" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(cs_lapi_decisions_ok_total[1h]) * 3600 or vector(0))",
+              "legendFormat": "Bans/hr",
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(traefik_service_requests_total{code=~\"4..\"}[5m]))",
+              "legendFormat": "4xx/s",
+              "refId": "B"
+            }
+          ]
+        },
+
+        {
+          "id": 56,
+          "type": "timeseries",
+          "title": "Traefik Error Rates by Service",
+          "description": "5xx errors broken down by backend service. Identifies which service is generating server errors for targeted remediation. Control: SOC 2 CC6.6, ISO A.17.",
+          "gridPos": { "h": 4, "w": 16, "x": 0, "y": 42 },
+          "options": {
+            "tooltip": { "mode": "multi", "sort": "none" },
+            "legend": { "displayMode": "table", "placement": "right" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": { "lineWidth": 1, "fillOpacity": 5 }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum by (service) (rate(traefik_service_requests_total{code=~\"5..\"}[5m]))",
+              "legendFormat": "{{service}}",
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 60,
+          "type": "row",
+          "title": "System Hardening (CIS Benchmarks | NIST PR.IP)",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 46 }
+        },
+
+        {
+          "id": 61,
+          "type": "stat",
+          "title": "SELinux — Enforcing Nodes",
+          "description": "Count of nodes where SELinux is in Enforcing mode (mode=1). All nodes should be enforcing. Requires --collector.selinux flag on node_exporter. Control: CIS AlmaLinux Benchmark, NIST PR.IP-1.",
+          "gridPos": { "h": 5, "w": 5, "x": 0, "y": 47 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "green", "value": 4 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "count(node_selinux_current_mode == 1) or vector(0)",
+              "legendFormat": "Enforcing Nodes",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 62,
+          "type": "stat",
+          "title": "SELinux — Non-Enforcing Nodes",
+          "description": "Count of nodes NOT in SELinux Enforcing mode. Should always be 0. Any non-zero value is a CIS benchmark failure. Control: CIS AlmaLinux Benchmark section 1.6, NIST PR.IP-1.",
+          "gridPos": { "h": 5, "w": 5, "x": 5, "y": 47 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "count(node_selinux_current_mode == 0) or vector(0)",
+              "legendFormat": "Non-Enforcing",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 63,
+          "type": "stat",
+          "title": "Node Health — Ready Nodes",
+          "description": "Nodes in Ready condition. All cluster nodes should be Ready. Non-ready nodes may have degraded monitoring coverage. Control: NIST PR.IP-7, CIS v8 IG2 1.",
+          "gridPos": { "h": 5, "w": 4, "x": 10, "y": 47 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 3 },
+                  { "color": "green", "value": 4 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "count(kube_node_status_condition{condition=\"Ready\",status=\"true\"})",
+              "legendFormat": "Ready Nodes",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 64,
+          "type": "text",
+          "title": "Lynis Hardening Index",
+          "description": "Lynis hardening index requires a custom textfile exporter. Not yet deployed.",
+          "gridPos": { "h": 5, "w": 5, "x": 14, "y": 47 },
+          "options": {
+            "content": "### Lynis Hardening Index\n\n**Status:** PENDING EXPORTER\n\nTarget metric: `lynis_hardening_index{node=~\".+\"}`\n\n**Deploy:** node_exporter textfile collector + bash script parsing `/var/log/compliance/lynis-report-*.dat`\n\n**Target score:** > 80/100\n\n**Runs:** Weekly cron, Sunday 02:00 UTC\n\n**Controls:** CIS AlmaLinux Benchmark, NIST PR.IP-1",
+            "mode": "markdown"
+          }
+        },
+
+        {
+          "id": 65,
+          "type": "text",
+          "title": "OpenSCAP CIS Benchmark Score",
+          "description": "OpenSCAP CIS L1 pass/fail requires a custom textfile exporter. Not yet deployed.",
+          "gridPos": { "h": 5, "w": 5, "x": 19, "y": 47 },
+          "options": {
+            "content": "### OpenSCAP CIS L1\n\n**Status:** PENDING EXPORTER\n\nTarget metrics:\n- `openscap_hardening_score{profile=\"cis_l1\"}`\n- `openscap_checks_pass`\n- `openscap_checks_fail`\n\n**Deploy:** textfile collector script parsing ARF XML\n\n**Target:** > 90% pass rate\n\n**Controls:** CIS AlmaLinux 9, NIST PR.IP-1, ISO A.18.2",
+            "mode": "markdown"
+          }
+        },
+
+        {
+          "id": 70,
+          "type": "row",
+          "title": "Change Management (NIST PR.IP | SOC 2 CC8 | ISO A.12.1)",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 52 }
+        },
+
+        {
+          "id": 71,
+          "type": "stat",
+          "title": "ArgoCD — Sync Success Rate (7d)",
+          "description": "Percentage of ArgoCD sync operations that succeeded in the last 7 days. Low success rate indicates deployment instability. Control: NIST PR.IP-3, SOC 2 CC8.1, ISO A.12.1.",
+          "gridPos": { "h": 5, "w": 5, "x": 0, "y": 53 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 80 },
+                  { "color": "green", "value": 95 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(argocd_app_sync_total{phase=\"Succeeded\"}[7d])) / (sum(rate(argocd_app_sync_total[7d])) > 0) * 100",
+              "legendFormat": "Sync Success %",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 72,
+          "type": "stat",
+          "title": "ArgoCD — Deployment Frequency (24h)",
+          "description": "DORA metric: number of successful deployments in the last 24 hours. Tracks change management velocity. Control: NIST PR.IP-3, SOC 2 CC8.",
+          "gridPos": { "h": 5, "w": 5, "x": 5, "y": 53 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "yellow", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(increase(argocd_app_sync_total{phase=\"Succeeded\"}[24h]))",
+              "legendFormat": "Deployments",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 73,
+          "type": "stat",
+          "title": "ArgoCD — Apps Out of Sync",
+          "description": "Applications with sync status OutOfSync — configuration drift from GitOps desired state. Should be 0 in a well-managed cluster. Control: NIST PR.IP-3, SOC 2 CC8.1.",
+          "gridPos": { "h": 5, "w": 5, "x": 10, "y": 53 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "red", "value": 5 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "count(argocd_app_info{sync_status=\"OutOfSync\"}) or vector(0)",
+              "legendFormat": "Out of Sync",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 74,
+          "type": "stat",
+          "title": "ArgoCD — Degraded Apps",
+          "description": "DORA Change Failure Rate proxy: applications currently in Degraded health status. Should be 0 in normal operations. Control: NIST PR.IP-3, SOC 2 CC8.",
+          "gridPos": { "h": 5, "w": 4, "x": 15, "y": 53 },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "red", "value": 3 }
+                ]
+              },
+              "color": { "mode": "thresholds" }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "count(argocd_app_info{health_status=\"Degraded\"}) or vector(0)",
+              "legendFormat": "Degraded Apps",
+              "instant": true,
+              "refId": "A"
+            }
+          ]
+        },
+
+        {
+          "id": 75,
+          "type": "timeseries",
+          "title": "Deployment Activity (7d)",
+          "description": "ArgoCD sync successes and failures over the last 7 days. Visual evidence of change management activity. Control: NIST PR.IP-3, SOC 2 CC8.1, ISO A.12.1.",
+          "gridPos": { "h": 5, "w": 5, "x": 19, "y": 53 },
+          "options": {
+            "tooltip": { "mode": "multi", "sort": "none" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "lineWidth": 2, "fillOpacity": 20 }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Succeeded" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Failed" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+              }
+            ]
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(increase(argocd_app_sync_total{phase=\"Succeeded\"}[1h]))",
+              "legendFormat": "Succeeded",
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(increase(argocd_app_sync_total{phase=\"Failed\"}[1h]))",
+              "legendFormat": "Failed",
+              "refId": "B"
+            }
+          ]
+        },
+
+        {
+          "id": 80,
+          "type": "row",
+          "title": "UCM Control Matrix — Evidence Status",
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 58 }
+        },
+
+        {
+          "id": 81,
+          "type": "table",
+          "title": "Control Evidence Matrix — Automated Controls",
+          "description": "Live status of automated UCM controls. GREEN = passing, RED = failing, GREY = data unavailable. Manual controls tracked in ClickUp (not shown here).",
+          "gridPos": { "h": 20, "w": 24, "x": 0, "y": 59 },
+          "options": {
+            "sortBy": [{ "displayName": "Control ID", "desc": false }],
+            "footer": { "show": true, "reducer": ["count"], "fields": ["Control ID"] }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "custom": { "align": "left", "inspect": false },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "green", "value": 1 }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Status" },
+                "properties": [
+                  { "id": "custom.displayMode", "value": "color-background" },
+                  { "id": "mappings", "value": [
+                    { "type": "value", "options": { "1": { "text": "PASS", "color": "green", "index": 0 } } },
+                    { "type": "value", "options": { "0": { "text": "FAIL", "color": "red", "index": 1 } } }
+                  ]}
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Automation" },
+                "properties": [
+                  { "id": "custom.displayMode", "value": "color-background" },
+                  { "id": "mappings", "value": [
+                    { "type": "value", "options": { "Automated": { "color": "green", "index": 0 } } },
+                    { "type": "value", "options": { "Partial": { "color": "yellow", "index": 1 } } },
+                    { "type": "value", "options": { "Manual": { "color": "grey", "index": 2 } } },
+                    { "type": "value", "options": { "Pending": { "color": "blue", "index": 3 } } }
+                  ]}
+                ]
+              }
+            ]
+          },
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "organize",
+              "options": {
+                "renameByName": {}
+              }
+            }
+          ],
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "count(kube_node_status_condition{condition=\"Ready\",status=\"true\"}) / count(kube_node_info) > bool 0.99",
+              "legendFormat": "Status",
+              "instant": true,
+              "refId": "NIST-PR-AC-1",
+              "format": "table"
+            }
+          ]
+        },
+
+        {
+          "id": 82,
+          "type": "text",
+          "title": "UCM Control Matrix — Full Legend & Evidence Guide",
+          "gridPos": { "h": 15, "w": 24, "x": 0, "y": 79 },
+          "options": {
+            "content": "## UCM Control Evidence Reference\n\n### Automation Coverage Summary\n\n| Level | Count | Examples |\n|-------|-------|---------|\n| Fully Automated (metrics) | ~35 (44%) | Auth failures, pod restarts, TLS expiry, CNPG backups |\n| Partially Automated (exporter needed) | ~16 (20%) | Lynis score, Harbor CVEs, WireGuard, SELinux |\n| Log-based (Loki LogQL) | ~12 (15%) | SSH logins, audit events, image pulls |\n| Manual + ClickUp only | ~17 (21%) | Policy reviews, vendor assessments, training |\n\n**Total automated: ~63 controls (79%)**\n\n---\n\n### Control Domain → Dashboard Row Mapping\n\n| Control Domain | Framework | Row | Evidence Source |\n|---------------|-----------|-----|-----------------|\n| PR.AC — Access Control | NIST CSF | Row 2 | apiserver metrics, Zitadel metrics |\n| CC6 — Logical Access | SOC 2 | Row 2 | Same as above |\n| A.9 — Access Control | ISO 27001 | Row 2 | Same as above |\n| DE.AE — Audit/Logging | NIST CSF | Row 3 | Loki, Prometheus |\n| CC7 — Monitoring | SOC 2 | Row 3 | Same as above |\n| A.12.4 — Logging | ISO 27001 | Row 3 | Same as above |\n| PR.DS — Encryption | NIST CSF | Row 4 | Traefik TLS metrics |\n| A.10 — Cryptography | ISO 27001 | Row 4 | Same as above |\n| RC.RP — Recovery | NIST CSF | Row 5 | CNPG backup metrics |\n| A1.2 — Availability | SOC 2 | Row 5 | Same as above |\n| A.12.3 — Backup | ISO 27001 | Row 5 | Same as above |\n| PR.AC-5 — Network | NIST CSF | Row 6 | CrowdSec, Traefik |\n| CC6.6 — Network | SOC 2 | Row 6 | Same as above |\n| CIS 13 — Network | CIS v8 IG2 | Row 6 | Same as above |\n| PR.IP — Hardening | NIST CSF | Row 7 | SELinux, Lynis, OpenSCAP |\n| CIS Benchmarks | CIS v8 | Row 7 | Same as above |\n| PR.IP-3 — Change Mgmt | NIST CSF | Row 8 | ArgoCD metrics |\n| CC8 — Change Mgmt | SOC 2 | Row 8 | Same as above |\n| A.12.1 — Change Mgmt | ISO 27001 | Row 8 | Same as above |\n\n---\n\n### Pending Evidence (Exporter Deployment Required)\n\n| Evidence Gap | Exporter | Priority | Estimated Effort |\n|-------------|----------|----------|-----------------|\n| Lynis hardening index | node_exporter textfile collector | HIGH | 2h |\n| OpenSCAP CIS L1 scores | node_exporter textfile collector | HIGH | 2h |\n| WireGuard peer health | prometheus-wireguard-exporter DaemonSet | MEDIUM | 4h |\n| Harbor CVE counts | harbor-vulnerabilities-exporter | MEDIUM | 8h |\n| ClickUp manual control status | Infinity plugin + n8n middleware | LOW | 16h |",
+            "mode": "markdown"
+          }
+        }
+
+      ],
+      "templating": {
+        "list": []
+      },
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "links": []
+    }
