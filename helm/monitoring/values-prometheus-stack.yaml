@@ -13,7 +13,7 @@ alertmanager:
         memory: 128Mi
 
 grafana:
-  adminPassword: helix-temp-password  # TODO: replace with Zitadel OIDC
+  adminPassword: helix-temp-password  # Fallback admin — do NOT remove until OIDC verified working
   persistence:
     enabled: false  # Config managed via Helm values
   resources:
@@ -22,6 +22,42 @@ grafana:
       memory: 128Mi
     limits:
       memory: 256Mi
+
+  # OIDC client credentials — sourced from grafana-zitadel-oauth secret (monitoring namespace)
+  # Create secret before helm upgrade:
+  #   sudo /usr/local/bin/k3s kubectl create secret generic grafana-zitadel-oauth \
+  #     -n monitoring \
+  #     --from-literal=client-id="<CLIENT_ID>" \
+  #     --from-literal=client-secret="<CLIENT_SECRET>"
+  envValueFrom:
+    GF_AUTH_GENERIC_OAUTH_CLIENT_ID:
+      secretKeyRef:
+        name: grafana-zitadel-oauth
+        key: client-id
+    GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
+      secretKeyRef:
+        name: grafana-zitadel-oauth
+        key: client-secret
+
+  grafana.ini:
+    server:
+      root_url: https://grafana.helixstax.net
+    auth.generic_oauth:
+      enabled: true
+      allow_sign_up: true
+      name: Zitadel
+      # client_id and client_secret injected via GF_ env vars above — do not set here
+      scopes: openid email profile offline_access roles
+      auth_url: https://zitadel.helixstax.net/oauth/v2/authorize
+      token_url: https://zitadel.helixstax.net/oauth/v2/token
+      api_url: https://zitadel.helixstax.net/oidc/v1/userinfo
+      use_pkce: true
+      use_refresh_token: true
+      login_attribute_path: preferred_username
+      email_attribute_path: email
+      # Role mapping: groups claim is injected by Zitadel addGroupsClaim Action
+      # Zitadel project roles: platform-admin -> GrafanaAdmin, platform-engineer -> Editor, others -> Viewer
+      role_attribute_path: "contains(groups[*], 'platform-admin') && 'GrafanaAdmin' || contains(groups[*], 'platform-engineer') && 'Editor' || 'Viewer'"
 
 prometheus:
   prometheusSpec:

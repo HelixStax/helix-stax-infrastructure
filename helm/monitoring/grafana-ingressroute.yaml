@@ -1,0 +1,17 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: grafana
+  namespace: monitoring
+  labels:
+    app: grafana
+    release: monitoring
+spec:
+  entryPoints:
+    - web          # HTTP/1.1 — Cloudflare tunnel sends HTTP/1.1 to Traefik
+  routes:
+    - match: Host(`grafana.helixstax.net`)
+      kind: Rule
+      services:
+        - name: monitoring-grafana
+          port: 80  # Grafana is HTTP/1.1 — no h2c
