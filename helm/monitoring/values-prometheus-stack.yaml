@@ -44,7 +44,7 @@ grafana:
       root_url: https://grafana.helixstax.net
     auth.generic_oauth:
       enabled: true
-      allow_sign_up: false
+      allow_sign_up: true  # Required: persistence=false wipes user DB on restart. Zitadel controls who can authenticate (self-registration disabled).
       name: Zitadel
       # client_id and client_secret injected via GF_ env vars above — do not set here
       scopes: openid email profile offline_access roles
