@@ -1,18 +1,35 @@
 # Valkey values for Helix Stax
-# Chart: bitnami/valkey 5.4.9 (Valkey 9.0.3)
+# Chart: bitnami/valkey
 # Repo: https://charts.bitnami.com/bitnami
-# Deploy via: helm install (Devtron chart store has bitnami indexed but POST install API not exposed)
+# Deploy via: Devtron Chart Store (GitOps/ArgoCD) or helm install
 # Namespace: database (co-located with CNPG)
 #
-# IMPORTANT: After helm install/upgrade, patch the ServiceMonitor to add release: monitoring label:
-#   kubectl patch servicemonitor valkey -n database --type=merge -p '{"metadata":{"labels":{"release":"monitoring"}}}'
-# The bitnami/valkey 5.4.9 chart template does NOT render metrics.serviceMonitor.labels into the object.
+# Prerequisites:
+#   kubectl create secret generic valkey-auth -n database --from-literal=valkey-password=<STRONG_PASSWORD>
+#
+# NOTE: Bitnami removed versioned tags from free Docker Hub. All images use 'latest'.
+# Pin to specific SHA digests for production stability when ready.
+
+# Image overrides — Bitnami free tier only has 'latest' tags
+global:
+  imageRegistry: docker.io
+
+image:
+  registry: docker.io
+  repository: bitnami/valkey
+  tag: latest
+
+sentinel:
+  image:
+    registry: docker.io
+    repository: bitnami/valkey-sentinel
+    tag: latest
 
 architecture: standalone  # Single instance — HA later when second DB node available
 
 auth:
   enabled: true
-  existingSecret: valkey-auth          # kubectl create secret generic valkey-auth -n database --from-literal=valkey-password=<STRONG_PASSWORD>
+  existingSecret: valkey-auth
   existingSecretPasswordKey: valkey-password
 
 primary:
@@ -29,7 +46,6 @@ primary:
     enabled: true
     size: 2Gi
     storageClassName: local-path
-  # Network policy — restrict access to known namespaces
   networkPolicy:
     enabled: true
     allowExternal: false               # Only same-namespace pods by default
@@ -37,10 +53,14 @@ primary:
 # Prometheus metrics via redis-exporter sidecar
 metrics:
   enabled: true
+  image:
+    registry: docker.io
+    repository: bitnami/redis-exporter
+    tag: latest
   serviceMonitor:
     enabled: true
     namespace: database
-    labels:
+    additionalLabels:
       release: monitoring              # Required for kube-prometheus-stack discovery
   resources:
     requests:
@@ -48,6 +68,19 @@ metrics:
       memory: 32Mi
     limits:
       memory: 64Mi
+
+# Utility images
+volumePermissions:
+  image:
+    registry: docker.io
+    repository: bitnami/os-shell
+    tag: latest
+
+kubectl:
+  image:
+    registry: docker.io
+    repository: bitnami/kubectl
+    tag: latest
 
 # Service configuration
 service:
